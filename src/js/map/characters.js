@@ -18,6 +18,22 @@ function boat(x, y, angle, now) {
     ctx.ellipse(0, 12, 8 + 10 * (1 - strokePulse), 3 + 5 * (1 - strokePulse), 0, 0, Math.PI * 2);
     ctx.stroke();
   }
+  function botBoat(x, y, angle, bot) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle + Math.PI / 2);
+    ctx.fillStyle = bot.finishedAt === null ? '#f3d36b' : '#b6b6a2';
+    ctx.strokeStyle = '#332b20';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, -8);
+    ctx.quadraticCurveTo(4, -2, 3, 8);
+    ctx.quadraticCurveTo(0, 11, -3, 8);
+    ctx.quadraticCurveTo(-4, -2, 0, -8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
   const gold = isGoldenBoat();
   if (gold) {
     const paint = ctx.createLinearGradient(-5, -14, 5, 14);
@@ -91,6 +107,22 @@ function boat(x, y, angle, now) {
   ctx.lineTo(-bladeX + 2, bladeY);
   ctx.moveTo(bladeX - 2, bladeY);
   ctx.lineTo(bladeX + 3, bladeY);
+  ctx.stroke();
+  ctx.restore();
+}
+function botBoat(x, y, angle, bot) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle + Math.PI / 2);
+  ctx.fillStyle = bot.finishedAt === null ? '#f3d36b' : '#b6b6a2';
+  ctx.strokeStyle = '#332b20';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, -8);
+  ctx.quadraticCurveTo(4, -2, 3, 8);
+  ctx.quadraticCurveTo(0, 11, -3, 8);
+  ctx.quadraticCurveTo(-4, -2, 0, -8);
+  ctx.fill();
   ctx.stroke();
   ctx.restore();
 }

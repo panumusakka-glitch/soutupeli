@@ -111,6 +111,10 @@ function draw(now) {
   ctx.fillRect(0, 0, w, h);
   if (retroMapReady) {
     ctx.drawImage(retroMap, m.x, m.y, m.w, m.h);
+    for (const bot of botRacers) {
+      const botPoint = pointOnRoute(Math.min(1, bot.distance / TOTAL), m.w, m.h);
+      botBoat(m.x + botPoint.x, m.y + botPoint.y, botPoint.angle, bot);
+    }
     const p = pointOnRoute(Math.min(1, distance / TOTAL), m.w, m.h);
     boat(m.x + p.x, m.y + p.y, p.angle, now);
   } else {

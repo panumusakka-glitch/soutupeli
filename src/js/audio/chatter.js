@@ -207,6 +207,22 @@ const rowerChatter = (() => {
       lastBand
     };
   }
+  function announceFinish(name, finishTime, place) {
+    if (!autoSpeech || !rowingAudio.isEnabled() || !synth || !globalThis.SpeechSynthesisUtterance) return;
+    cancel();
+    const praise = place === 1 ? FINISH_PRAISE.first : place === 2 ? FINISH_PRAISE.fast : place === 3 ? FINISH_PRAISE.solid : FINISH_PRAISE.finish;
+    const text = `Maaliin saapuu ${name}! Loppuaika ${finishTime}. Sijoitus ${place}. ${praise}`;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'fi-FI';
+    utterance.rate = .9;
+    utterance.pitch = .95;
+    utterance.volume = .9;
+    const voice = preferredVoice('male', synth.getVoices().filter(v => /^fi(?:-|_|$)/i.test(v.lang)));
+    if (voice) utterance.voice = voice;
+    try {
+      synth.speak(utterance);
+    } catch {}
+  }
   function restore(saved, name, time) {
     reset();
     selectedRower = name;
@@ -221,6 +237,7 @@ const rowerChatter = (() => {
   return {
     reset,
     arm,
+    announceFinish,
     cancel,
     badStroke,
     tick,

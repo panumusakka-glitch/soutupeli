@@ -19,6 +19,7 @@ function selectCrew() {
   document.getElementById('materialStats').textContent = material ? `Paino noin ${boatWeight()} kg. ${selectedBoat.spruceOnly ? 'Saatavana vain kuusivanerisena. ' : ''}${materials[material].name}: ${materials[material].description}${isGoldenBoat() ? ' Kultainen erikoisvene.' : ''}` : '';
   document.getElementById('startButton').disabled = !(hasRower && hasBoat && material);
   document.getElementById('crewLabel').textContent = hasRower && hasBoat && material ? `${rower.name} · ${selectedBoat.name} · ${materials[material].name}` : '';
+  if (!running && hasRower && hasBoat && material && typeof resetBotRacers === 'function') resetBotRacers();
 }
 function updatePortrait() {
   const image = document.getElementById('rowerPortrait');
