@@ -1,0 +1,26 @@
+const assert=require('node:assert/strict');
+const {createGame}=require('./harness.cjs');
+const {box,nodes,storage,spoken,run,listeners}=createGame();
+const plain=x=>JSON.parse(JSON.stringify(x));
+assert.equal(run('rower.name'), 'Panu Musakka');assert.equal(run('selectedBoat.name'), 'Lonka');assert.equal(nodes.materialSelect.value,'mahogany');assert.equal(nodes.startButton.disabled,false);
+run(`rowerSelect.value='0';boatSelect.value='1';materialSelect.value='spruce';selectCrew();`);
+assert.equal(run('rower.name'),'Heikki Karjaluoto');assert.equal(run('selectedBoat.name'),'Lehto');assert.equal(run('material'),'spruce');assert.equal(nodes.startButton.disabled,false);
+nodes.crewMenuButton.onclick();assert.equal(run('rower.name'),'Panu Musakka');assert.equal(run('selectedBoat.name'),'Lonka');assert.equal(run('material'),'mahogany');
+run('start();');
+assert.equal(spoken.at(-1).text,run('START_ANNOUNCEMENT'));
+run(`raceElapsed=12600;distance=32000;speed=9.7;quality=.88;carbs=190;gutCarbs=16;fluidBalance=-.8;gutFluid=.2;sodiumBalance=-200;gutSodium=40;gutStress=12;stamina=61;hydration=72;energy=42;blisters=23;cramps=17;inventory.gel=3;inventory.sportsdrink=12;saveRace();`);
+const saved=JSON.parse(storage.get('suursoutu-race-v1'));
+box.document.hidden=true;listeners.visibilitychange();run('update(3600,99999999)');assert.equal(run('raceElapsed'),12600);assert.equal(run('distance'),32000);box.document.hidden=false;
+// Fresh VM: browser storage persists while all game state is reconstructed.
+const fresh=createGame();fresh.storage.set('suursoutu-race-v1',JSON.stringify(saved));fresh.run('showSavedRace();resumeRace()');
+const restored=plain(fresh.run('snapshot()'));for(const k of Object.keys(saved))if(k!=='chatter')assert.deepEqual(restored[k],saved[k],k);
+fresh.run('update(1,performance.now());consume("gel")');assert.equal(fresh.run('raceElapsed'),12601);assert.equal(JSON.parse(fresh.storage.get('suursoutu-race-v1')).inventory.gel,2);
+assert.equal(run('validRace({...loadRace(),elapsed:NaN})'),false);assert.equal(run('validRace({...loadRace(),inventory:{gel:-1}})'),false);
+assert.equal(run('validRace({...loadRace(),rower:"Missing"})'),false);
+run('pausedSave=null;resumeRace();distance=TOTAL-.0001;speed=10;update(1,performance.now())');assert.equal(storage.has('suursoutu-race-v1'),false);
+box.localStorage.setItem=()=>{throw Error('blocked')};run('start();pauseRace()');assert(nodes.pauseStatus.textContent.includes('Tallennus ei onnistu'));
+run(`running=false;boatSelect.value='4';materialSelect.value='mahogany';selectCrew();`);assert.equal(nodes.materialSelect.value,'');assert(nodes.startButton.disabled);
+run(`materialSelect.value='spruce';selectCrew();`);assert.equal(nodes.startButton.disabled,false);
+run(`rower=rowers.find(r=>r.name==='Seppo Räty');blisters=0;quality=0;for(let t=0;t<28800;t+=60)updateBody(60,section(),t);if(blisters!==0)throw Error('Seppo blisters');`);
+run(`running=true;for(const [w,h] of [[375,160],[375,300],[900,500]])for(let i=0;i<=100;i++){distance=TOTAL*i/100;const m=mapViewport(w,h),p=pointOnRoute(distance/TOTAL,m.w,m.h);if(Math.abs(p.x+m.x-w/2)>1e-7||Math.abs(p.y+m.y-h/2)>1e-7)throw Error('Camera');}setMapOverview(true);if(mapViewport(375,300).h>300)throw Error('Overview');`);
+console.log('OK: module startup, default menu, first announcement, save/reload, pause, food, finish, invalid storage, material restrictions, immunity, camera.');
