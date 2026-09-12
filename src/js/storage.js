@@ -57,6 +57,14 @@ function snapshot() {
     inventory: {
       ...inventory
     },
+    bots: botRacers.map(bot => ({
+      rower: bot.rower.name,
+      distance: bot.distance,
+      speed: bot.speed,
+      stamina: bot.stamina,
+      energy: bot.energy,
+      finishedAt: bot.finishedAt
+    })),
     chatter: rowerChatter.snapshot()
   };
 }
@@ -118,6 +126,19 @@ function resumeRace() {
   inventory = {
     ...s.inventory
   };
+  if (Array.isArray(s.bots)) {
+    botRacers = s.bots.flatMap(saved => {
+      const botRower = rowers.find(r => r.name === saved.rower);
+      return botRower && Number.isFinite(saved.distance) && Number.isFinite(saved.speed) && Number.isFinite(saved.stamina) && Number.isFinite(saved.energy) ? [{
+        rower: botRower,
+        distance: clamp(saved.distance, 0, TOTAL),
+        speed: clamp(saved.speed, 0, MAX_SPEED),
+        stamina: clamp(saved.stamina, 0, 100),
+        energy: clamp(saved.energy, 0, 100),
+        finishedAt: saved.finishedAt === null || Number.isFinite(saved.finishedAt) ? saved.finishedAt : null
+      }] : [];
+    });
+  }
   rowerChatter.restore(s.chatter, rower.name, raceElapsed);
   running = true;
   last = performance.now();

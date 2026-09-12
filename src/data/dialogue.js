@@ -26,3 +26,9 @@ const complaints = {
   slow: ['Ei saatana, tämä vene ei kule.', 'Perkele, onko ankkuri pohjassa vai pohja ankkurissa?', 'Vittu, mummokin menisi tästä ohi kahvikuppi kädessä.', 'Saatana, tämä ei ole vene. Tämä on kelluva jarru.', 'Ei helvetti, rantakivikin näyttää tekevän irtiottoa.']
 };
 const START_ANNOUNCEMENT = "Nämä nykyaikaiset gladiaattorit ovat lähteneet kiertämään Partalansaarta. Nähdään soutustadionilla!";
+const FINISH_PRAISE = {
+  first: 'Aivan huikea suoritus! Tämä oli mestarillinen soutu.',
+  fast: 'Todella kova suoritus! Vauhti oli aivan mahtava.',
+  solid: 'Hieno suoritus ja vahva maaliintulo.',
+  finish: 'Maaliin asti taisteltu suoritus, onnittelut!'
+};

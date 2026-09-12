@@ -10,6 +10,7 @@ function reset() {
   running = false;
   pressing = false;
   speed = distance = 0;
+  resetBotRacers();
   strokeTimes = [];
   lastDrive = lastRecovery = 0;
   quality = .5;
@@ -38,6 +39,36 @@ function reset() {
   ui.finish.classList.add('hidden');
   updateInventory();
   updateUI();
+}
+function resetBotRacers() {
+  botRacers = rowers.filter(r => r.name !== rower.name).map(r => ({
+    rower: r,
+    distance: 0,
+    speed: 0,
+    stamina: 100,
+    energy: 100,
+    finishedAt: null
+  }));
+}
+function updateBotRacers(dt) {
+  for (const bot of botRacers) {
+    if (bot.finishedAt !== null) continue;
+    const r = bot.rower,
+      bodyFactor = .48 + .52 * Math.pow(clamp(bot.stamina / 100) * clamp(bot.energy / 100), .22),
+      speedFactor = .72 + .28 * r.speed / 99,
+      maxSpeed = r.bestTimeMinutes ? TOTAL / 1000 / (r.bestTimeMinutes / 60) : MAX_SPEED,
+      target = (7.05 + 4.75 * Math.pow(r.skill / 99, 2.2)) * (maxSpeed / MAX_SPEED) * bodyFactor * speedFactor * (.90 + .02 * 5) * (1 + .015),
+      effort = clamp((bot.speed - 7.2) / 4.6);
+    bot.speed += (target - bot.speed) / 8 * dt;
+    bot.speed = clamp(bot.speed, 0, maxSpeed);
+    bot.distance += bot.speed / 3.6 * dt;
+    bot.stamina = clamp(bot.stamina - (.65 + 7.2 * Math.pow(effort, 3)) * dt / 3600 * (1.7 - r.endurance / 99), 0, 100);
+    bot.energy = clamp(bot.energy - (48 + 45 * Math.pow(effort, 1.7)) * dt / 3600 / 3.95, 0, 100);
+    if (bot.distance >= TOTAL) {
+      bot.distance = TOTAL;
+      bot.finishedAt = raceElapsed;
+    }
+  }
 }
 function start() {
   if (rowerSelect.value === '' || boatSelect.value === '' || materialSelect.value === '') return;
@@ -78,6 +109,7 @@ function update(dt, now) {
   const s = section(),
     raceSec = raceElapsed;
   updateBody(dt, s, raceSec);
+  updateBotRacers(dt);
   strokePulse = Math.max(0, strokePulse - dt * 1.8);
   feedbackTimer = Math.max(0, feedbackTimer - dt);
   const active = strokeTimes.length && now - strokeTimes.at(-1) < 4500;
@@ -106,13 +138,14 @@ function update(dt, now) {
   });
   if (distance >= TOTAL) {
     distance = TOTAL;
-    rowerChatter.cancel();
+    const sec = raceElapsed,
+      place = 1 + botRacers.filter(bot => bot.finishedAt !== null && bot.finishedAt <= sec).length;
+    rowerChatter.announceFinish(rower.name, formatTime(sec), place);
     setProvisions(false);
     cancelStroke();
     running = false;
     updateInventory();
     clearRace();
-    const sec = raceElapsed;
     document.getElementById('finishTime').textContent = formatTime(sec);
     document.getElementById('finishSummary').textContent = `Maalissa Sulkavan soutustadionilla. Keskivauhti ${(3.6 * TOTAL / sec).toFixed(1).replace('.', ',')} km/h. Energiaa ${Math.round(energy)} %, nestetasapainoa ${Math.round(hydration)} % ja rakkoja ${Math.round(blisters)} %.`;
     ui.finish.classList.remove('hidden');
