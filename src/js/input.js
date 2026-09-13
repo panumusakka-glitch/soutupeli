@@ -42,7 +42,7 @@ function up(e) {
     releaseInput();
     lastDrive = (performance.now() - phaseStart) / 1000;
     phaseStart = performance.now();
-    const tolerance = .65 + rower.skill / 99 * .7;
+    const tolerance = (.65 + rower.skill / 99 * .7) * (.72 + .28 * techniqueControl);
     const drive = Math.exp(-Math.pow((lastDrive - TARGET_DRIVE) / (.38 * tolerance), 2)),
       recovery = Math.exp(-Math.pow((lastRecovery - TARGET_RECOVERY) / (.65 * tolerance), 2)),
       cycle = Math.exp(-Math.pow((lastDrive + lastRecovery - TARGET_CYCLE) / (.45 * tolerance), 2));

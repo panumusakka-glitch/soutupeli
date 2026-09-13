@@ -38,11 +38,11 @@ const foods = {
   },
   "sportsdrink": {
     "name": "Urheilujuoma",
-    "carbs": 6,
-    "fluid": 0.1,
-    "sodium": 60,
-    "stress": 0,
-    "stock": 50,
+    "carbs": 12,
+    "fluid": 0.2,
+    "sodium": 120,
+    "stress": 1,
+    "stock": 30,
     "unit": "drink"
   },
   "candy": {

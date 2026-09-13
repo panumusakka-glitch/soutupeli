@@ -15,9 +15,12 @@ let running = false,
   quality = .5,
   strokePower = 70,
   strokePulse = 0,
-  feedbackTimer = 0;
+  feedbackTimer = 0,
+  lastPowerSetting = 70,
+  powerSurge = 0;
 let {
   carbs,
+  bloodCarbs,
   gutCarbs,
   fluidBalance,
   gutFluid,
@@ -25,6 +28,7 @@ let {
   gutSodium,
   gutStress,
   stamina,
+  techniqueControl,
   hydration,
   energy,
   blisters,
@@ -38,6 +42,7 @@ let rower = rowers.find(r => r.name === DEFAULT_CREW.rower),
   material = DEFAULT_CREW.material;
 let botRacers = [];
 let raceDay = null;
+let recordEligible = false;
 function newRaceStats() {
   return {
     maxSpeed: 0,

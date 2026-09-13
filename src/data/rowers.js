@@ -89,7 +89,7 @@ const rowers = [{
   "voiceGender": "male"
 }, {
   "name": "Hanna Tuominen",
-  "speed": 93,
+  "speed": 90,
   "endurance": 96,
   "skill": 96,
   "cramp": 15,

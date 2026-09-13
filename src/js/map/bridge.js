@@ -5,17 +5,33 @@ raceStarterImage.src = 'race-starter.png';
 
 function drawStartBridge(m, w, h, now) {
   const scale = m.w / 805,
-    p = pointOnRoute(0, m.w, m.h),
+    // The start line is already clear of the bridge: racers never need to
+    // visually reverse back through it after the starting signal.
+    p = pointOnRoute(-70 / TOTAL, m.w, m.h),
     x = m.x + p.x,
     y = m.y + p.y;
   const halfSpan = 22 * scale,
-    deck = 5 * scale;
+    deck = 2.8 * scale;
   if (x + halfSpan < 0 || x - halfSpan > w || y + halfSpan < 0 || y - halfSpan > h) return;
   const c = displayCtx;
   c.save();
   c.translate(x, y);
   c.rotate(p.angle);
-  c.imageSmoothingEnabled = false;
+  c.imageSmoothingEnabled = true;
+  // Continue the access road well beyond the visible start area so it never
+  // appears to end abruptly in the forest behind the bridge.
+  const roadLength = 420 * scale;
+  c.fillStyle = 'rgba(8,15,32,.3)';
+  c.fillRect(-deck / 2 + 3, halfSpan + 3, deck, roadLength);
+  c.fillStyle = '#708090';
+  c.fillRect(-deck / 2, halfSpan, deck, roadLength);
+  c.fillStyle = '#e8dfba';
+  c.fillRect(-deck / 2, halfSpan, Math.max(1, scale * .4), roadLength);
+  c.fillRect(deck / 2 - scale * .4, halfSpan, Math.max(1, scale * .4), roadLength);
+  c.fillStyle = '#bcc7cd';
+  for (let i = 10 * scale; i < roadLength; i += 8 * scale) {
+    c.fillRect(-scale * .2, halfSpan + i, scale * .4, scale * 4);
+  }
   c.fillStyle = 'rgba(8,15,32,.3)';
   c.fillRect(-deck / 2 + 3, -halfSpan + 3, deck, halfSpan * 2);
   c.fillStyle = '#708090';
@@ -53,9 +69,9 @@ function drawStartBridge(m, w, h, now) {
     c.fill();
   }
   // The deck is drawn over the boat: at distance zero the rower is underneath it.
-  const size = Math.max(1, scale * .65),
+  const size = Math.max(1, scale * .38),
     colors = ['#d84838', '#f8d848', '#3888d8', '#f0e8d0', '#c068a0'],
-    spectatorCount = 10;
+    spectatorCount = 14;
   const racerCount = botRacers.length + 1;
   const crossingProgress = (
     clamp(distance / 50) +
@@ -67,25 +83,40 @@ function drawStartBridge(m, w, h, now) {
         ? clamp((crossingProgress - walkDelay) / (1 - walkDelay))
         : 1,
       smoothWalk = walkProgress * walkProgress * (3 - 2 * walkProgress);
-    const cy = (-12 + i * 2.7) * scale,
+    const cy = (-12 + i * 1.8) * scale,
       side = i % 2 ? -1 + 2 * smoothWalk : 1,
       cx = side * deck * .26,
       bounce = running && distance < 450 ? Math.sin(now * .011 + i) * size * .35 : 0;
     c.save();
     c.translate(cx, cy + bounce);
     c.rotate(side < 0 ? -Math.PI / 2 : Math.PI / 2);
-    c.fillStyle = colors[i % colors.length];
-    c.fillRect(-size, -size, size * 2, size * 2);
-    c.fillStyle = '#e8b080';
-    c.fillRect(-size * .65, -size * 1.8, size * 1.3, size * 1.3);
-    c.strokeStyle = '#e8b080';
-    c.lineWidth = Math.max(1, size * .55);
+    const bodyWidth = size * 1.7,
+      bodyHeight = size * 2.15,
+      clap = running && distance < 450 ? Math.sin(now * .016 + i) > .2 ? .25 : 1.55 : .9;
+    c.fillStyle = 'rgba(7,14,28,.32)';
     c.beginPath();
-    const clap = running && distance < 450 ? Math.sin(now * .016 + i) > .2 ? .3 : 1.5 : 1;
-    c.moveTo(-size, 0);
-    c.lineTo(-size * 2, -size * clap);
-    c.moveTo(size, 0);
-    c.lineTo(size * 2, -size * clap);
+    c.ellipse(size * .18, size * 1.7, bodyWidth * .8, size * .42, 0, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = colors[i % colors.length];
+    c.beginPath();
+    c.roundRect(-bodyWidth / 2, -size * .1, bodyWidth, bodyHeight, size * .45);
+    c.fill();
+    c.fillStyle = '#e8b080';
+    c.beginPath();
+    c.arc(0, -size * 1.05, size * .72, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = '#e8b080';
+    c.lineWidth = Math.max(1, size * .38);
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(-bodyWidth * .42, size * .4);
+    c.lineTo(-size * 1.55, -size * clap);
+    c.moveTo(bodyWidth * .42, size * .4);
+    c.lineTo(size * 1.55, -size * clap);
+    c.moveTo(-size * .34, bodyHeight);
+    c.lineTo(-size * .58, bodyHeight + size * .75);
+    c.moveTo(size * .34, bodyHeight);
+    c.lineTo(size * .58, bodyHeight + size * .75);
     c.stroke();
     c.restore();
   }

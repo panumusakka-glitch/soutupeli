@@ -160,8 +160,25 @@ body.start-menu .provisions{display:none}
 body.start-menu .lake-wrap{height:100vh;min-height:100vh;border:1px solid var(--line)}
 body.start-menu #startOverlay{justify-content:center;overflow:hidden}
 body.start-menu .start-logo{max-height:none}
+body.start-menu #startOverlay:has(#selectionPanel:not([hidden])){justify-content:flex-start;overflow:auto}
 .creator-credit{display:none}
 body.start-menu #startOverlay .creator-credit{display:block;margin:0;color:var(--muted);font-size:12px}
 .route-record{display:none;position:absolute;z-index:1;top:14px;right:16px;margin:0;color:#f8f0c0;font-size:12px;font-weight:700;text-align:right;text-shadow:2px 2px #080f20;pointer-events:none}
 .race-mode .route-record{display:block}
 @media(max-width:800px){.route-record{top:8px;right:8px;font-size:10px}}
+
+/* Saimaa at dusk: preserve the map pixels, then add an arcade sunset and water-glow layer. */
+body.start-menu .lake-wrap{background:#06132d}
+body.start-menu #startOverlay{isolation:isolate;background:linear-gradient(180deg,rgba(7,15,38,.60) 0%,rgba(11,23,54,.74) 52%,rgba(5,13,34,.87) 100%)}
+body.start-menu #startOverlay::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 46% 24% at 50% 28%,rgba(251,162,83,.19),transparent 70%),radial-gradient(ellipse 60% 18% at 50% 72%,rgba(86,192,255,.18),transparent 72%),repeating-linear-gradient(174deg,transparent 0 15px,rgba(166,224,255,.055) 16px 18px,transparent 19px 31px);animation:saimaa-shimmer 8s ease-in-out infinite}
+body.start-menu #startOverlay>*{position:relative;z-index:1}
+body.start-menu .start-logo{filter:drop-shadow(0 0 2px #fff2ae) drop-shadow(5px 6px 0 #080f20) drop-shadow(0 0 22px rgba(248,184,72,.32));animation:logo-glow 3.5s ease-in-out infinite}
+body.start-menu .resume-panel{border-color:#ffe36a;background:linear-gradient(145deg,rgba(31,49,91,.96),rgba(14,29,65,.96));box-shadow:0 0 0 3px rgba(7,14,34,.86),6px 7px 0 #070e22,0 0 30px rgba(82,176,255,.16)}
+body.start-menu .resume-panel strong{color:#fff1ac;text-shadow:2px 2px #111a38}
+body.start-menu .resume-panel p{color:#d4e0f5}
+body.start-menu .save-menu-actions button{background:linear-gradient(180deg,#dd5849 0 48%,#b92f35 49% 100%);box-shadow:3px 3px #071025,0 0 0 1px rgba(255,238,160,.35) inset;transition:transform .12s steps(2),filter .12s steps(2)}
+body.start-menu .save-menu-actions button:hover{filter:brightness(1.14);transform:translate(-1px,-1px)}
+body.start-menu .creator-credit{text-shadow:1px 1px #071025;letter-spacing:.02em}
+@keyframes saimaa-shimmer{0%,100%{background-position:center,center,0 0;opacity:.72}50%{background-position:center,center,36px 14px;opacity:1}}
+@keyframes logo-glow{0%,100%{filter:drop-shadow(0 0 2px #fff2ae) drop-shadow(5px 6px 0 #080f20) drop-shadow(0 0 16px rgba(248,184,72,.24))}50%{filter:drop-shadow(0 0 4px #fff9c9) drop-shadow(5px 6px 0 #080f20) drop-shadow(0 0 30px rgba(248,184,72,.52))}}
+@media(prefers-reduced-motion:reduce){body.start-menu #startOverlay::before,body.start-menu .start-logo{animation:none}}

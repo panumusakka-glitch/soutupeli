@@ -48,6 +48,8 @@ document.addEventListener('visibilitychange', () => {
 });
 ['contextmenu', 'selectstart', 'dragstart'].forEach(type => canvas.addEventListener(type, e => e.preventDefault()));
 document.getElementById('startButton').onclick = start;
+document.getElementById('startOverlay').addEventListener('pointerdown', () => rowingAudio.startMenuMusic(), {once: true});
+addEventListener('keydown', () => rowingAudio.startMenuMusic(), {once: true});
 document.getElementById('againButton').onclick = () => {
   reset();
   selectDefaultCrew();

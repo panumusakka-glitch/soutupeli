@@ -1,10 +1,4 @@
-const portraitCrops = {
-  'Mauno Myllym\u00e4ki': [.1, 0, .65, .65],
-  'Esa Melanen': [.23, 0, .64, .64],
-  'Jorma Suortti': [.14, .02, .7, .7],
-  'Einari Luukkonen': [.15, 0, .7, .7],
-  'Marko Lepp\u00e4m\u00e4ki': [.18, .03, .65, .65]
-};
+const portraitCrops = {};
 const portraitFiles = {
   'Joel Naukkarinen': 'joel-naukkarinen.png',
   'Pertti Karppinen': 'pertti-karppinen.png',

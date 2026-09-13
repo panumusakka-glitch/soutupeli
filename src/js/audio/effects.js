@@ -7,6 +7,8 @@ const rowingAudio = (() => {
     enabled = true;
   const crowdNodes = new Set();
   const button = document.getElementById('soundToggle');
+  const menuMusic = document.getElementById('menuMusic');
+  menuMusic.volume = .32;
   try {
     enabled = localStorage.getItem('rowingSound') !== 'off';
   } catch {}
@@ -91,6 +93,16 @@ const rowingAudio = (() => {
       } catch {}
     }
     crowdNodes.clear();
+  }
+  function startMenuMusic() {
+    if (!enabled) return;
+    const playback = menuMusic.play();
+    playback.catch(() => {});
+    return playback;
+  }
+  function stopMenuMusic() {
+    menuMusic.pause();
+    menuMusic.currentTime = 0;
   }
   function cheerStart() {
     stopCrowd();
@@ -185,10 +197,12 @@ const rowingAudio = (() => {
       globalThis.speechSynthesis?.cancel();
       stop();
       stopCrowd();
+      menuMusic.pause();
       if (master) master.gain.value = 0;
     } else {
       unlock();
       if (master) master.gain.value = .32;
+      if (document.body.classList.contains('start-menu')) startMenuMusic();
     }
     label();
     try {
@@ -204,6 +218,8 @@ const rowingAudio = (() => {
     starterShot,
     cheerStart,
     stopCrowd,
+    startMenuMusic,
+    stopMenuMusic,
     isEnabled: () => enabled
   };
 })();

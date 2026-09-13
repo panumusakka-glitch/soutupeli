@@ -7,6 +7,10 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <audio id="menuMusic" preload="auto" loop>
+    <source src="sulkava_epic_8bit.mp3" type="audio/mpeg">
+    <source src="sulkava_epic_8bit.wav" type="audio/wav">
+  </audio>
   <main class="game-shell">
     <header>
       <div>
@@ -82,7 +86,7 @@
       </div>
     </section>
 
-    <div class="route-status"><span id="saveWarning" role="status" hidden></span><span id="routeSection">TYYNI REITTIOSUUS</span><span id="routeProgress">0,0 % reitistä</span><button id="mapToggle" type="button" aria-pressed="false" aria-controls="lake">Kartta</button><span class="route-wind">Tuuli ↙ 1,8 m/s</span></div>
+    <div class="route-status"><span id="saveWarning" role="status" hidden></span><span id="routeSection">TYYNI REITTIOSUUS</span><button id="mapToggle" type="button" aria-pressed="false" aria-controls="lake">Kartta</button><span class="route-wind">Tuuli ↙ 1,8 m/s</span></div>
     <p id="crewLabel" class="note"></p><footer>
       <div class="stroke-guide">
         <div class="stroke-track" aria-hidden="true">

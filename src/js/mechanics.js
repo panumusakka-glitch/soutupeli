@@ -80,17 +80,74 @@ function strokeRateBlisterFactor(rpm) {
 }
 
 function powerStrain() {
-  return Math.pow(strokePower / 70, 2);
+  return Math.pow(effectiveStrokePower() / 70, 2);
 }
 
 function overdriveStrain() {
-  return Math.max(0, (strokePower - 100) / 10);
+  return Math.max(0, (effectiveStrokePower() - 100) / 10);
+}
+
+function rowerSweatRate(r = rower) {
+  const sexAdjustment = r.voiceGender === 'female' ? -.08 : .04;
+  return .72 + .22 * r.power / 99 + .18 * (1 - r.stomach / 99) + sexAdjustment;
+}
+
+/*
+ * Critical power is the highest stroke-power setting a rower can maintain
+ * over the long race. Stamina is the finite W' reserve above that level.
+ */
+function criticalStrokePower(r = rower) {
+  return 54 + .30 * r.endurance + .08 * r.power;
+}
+
+function effectiveStrokePower() {
+  const critical = criticalStrokePower();
+  if (strokePower <= critical) return strokePower;
+  // A nearly empty W' reserve progressively removes unsustainable power.
+  return critical + (strokePower - critical) * clamp(stamina / 20);
+}
+
+function updateWPrime(dt, active) {
+  if (!active) return;
+
+  const critical = criticalStrokePower();
+  const requestedExcess = strokePower - critical;
+  if (requestedExcess > 0) {
+    // 10 percentage points above critical power empties a full reserve in ~15 min.
+    stamina = clamp(stamina - requestedExcess * dt / 90, 0, 100);
+  } else {
+    // Easy rowing restores only part of the reserve, and does so gradually.
+    stamina = clamp(stamina + (critical - strokePower) * dt / 160, 0, 100);
+  }
+}
+
+function updateTechniqueControl(dt, s, effort, active) {
+  if (!active) return;
+
+  const fatigueLoad =
+    Math.max(0, 65 - energy) / 65 +
+    Math.max(0, 75 - hydration) / 75 +
+    .8 * (1 - stamina / 100) +
+    .55 * Math.max(0, effectiveStrokePower() - criticalStrokePower()) / 15 +
+    .25 * strokeRateStrain(currentStrokeRate()) +
+    (s.wind ? .22 : 0);
+  const skillProtection = .55 + .45 * rower.skill / 99;
+  const deterioration = fatigueLoad * (.04 + .10 * effort) / skillProtection;
+  const recovery = effort < .48 && fatigueLoad < .45
+    ? .09 * (.6 + .4 * rower.skill / 99)
+    : .012;
+
+  techniqueControl = clamp(
+    techniqueControl + (recovery - deterioration) * dt / 3600,
+    .35,
+    1
+  );
 }
 
 function rowingEffort(s, active = true) {
   if (!active) return 0;
 
-  const powerEffort = .35 + .65 * clamp((strokePower - 30) / 80);
+  const powerEffort = .35 + .65 * clamp((effectiveStrokePower() - 30) / 80);
   const cadenceEffort = clamp(currentStrokeRate() / TARGET_SPM, .35, 1.45);
   const techniqueCost = 1 + .25 * clamp(1 - quality);
   const resistance = 1 + Math.max(0, s.speedLoss) / 4.6;
@@ -127,11 +184,27 @@ function crampFactor() {
   );
 }
 
-function updateCramps(dt, effort, active = true) {
+function updateCramps(dt, effort, active = true, s = null) {
   const rpm = currentStrokeRate();
   const cadenceStrain = strokeRateStrain(rpm);
   const powerLoad = active ? powerStrain() : 1;
   const overdrive = active ? overdriveStrain() : 0;
+  const effectivePower = effectiveStrokePower();
+  const overCritical = Math.max(0, effectivePower - criticalStrokePower()) / 15;
+  const reserveDepletion = 1 - stamina / 100;
+  const windLoad = s?.wind ? .35 + s.speedLoss / 4 : 0;
+
+  if (active) {
+    powerSurge = clamp(
+      powerSurge + Math.max(0, strokePower - lastPowerSetting) * .45 - dt * .015,
+      0,
+      100
+    );
+    lastPowerSetting = strokePower;
+  } else {
+    powerSurge = clamp(powerSurge - dt * .03, 0, 100);
+    lastPowerSetting = strokePower;
+  }
 
   const imbalance =
     Math.max(0, (80 - hydration) / 80) +
@@ -140,11 +213,19 @@ function updateCramps(dt, effort, active = true) {
 
   const susceptibility = rower.cramp / 99;
 
+  const neuromuscularLoad =
+    .08 +
+    .60 * overCritical +
+    .45 * reserveDepletion +
+    .30 * windLoad +
+    powerSurge / 80;
+
   const growth =
-    imbalance *
     susceptibility *
     (.25 + effort) *
-    80 *
+    42 *
+    neuromuscularLoad *
+    (1 + imbalance * .8) *
     (1 + cadenceStrain * .35) *
     (.55 + .45 * powerLoad) *
     (1 + 1.5 * overdrive);
@@ -170,6 +251,8 @@ function updateBody(dt, s, raceSec, active) {
   const rpm = currentStrokeRate();
 
   const effort = rowingEffort(s, active);
+  updateWPrime(dt, active);
+  updateTechniqueControl(dt, s, effort, active);
   const cadenceStrain = strokeRateStrain(rpm);
   const powerLoad = active ? powerStrain() : 1;
   const overdrive = active ? overdriveStrain() : 0;
@@ -193,13 +276,19 @@ function updateBody(dt, s, raceSec, active) {
 
   const carbAbsorb = Math.min(
     gutCarbs,
-    (55 + 35 * rower.stomach / 99) * hour
+    (55 + 35 * rower.stomach / 99) * hour,
+    Math.max(0, 45 - bloodCarbs)
   );
 
   gutCarbs -= carbAbsorb;
+  bloodCarbs = clamp(bloodCarbs + carbAbsorb, 0, 45);
+
+  // Competition food first supports blood glucose and only then spares glycogen.
+  const bloodBurn = Math.min(bloodCarbs, carbBurn * .35);
+  bloodCarbs -= bloodBurn;
 
   carbs = clamp(
-    carbs + carbAbsorb - carbBurn,
+    carbs - (carbBurn - bloodBurn),
     0,
     420
   );
@@ -219,18 +308,20 @@ function updateBody(dt, s, raceSec, active) {
   gutSodium -= sodiumAbsorb;
   sodiumBalance += sodiumAbsorb;
 
-  updateCramps(dt, effort, active);
+  updateCramps(dt, effort, active, s);
 
   /*
    * Ylikova vetotahti kasvattaa hieman myös hikoilua.
    */
   const sweat = active
     ? (
-      .48 +
-      .34 * effort +
+      .42 +
+      .42 * effort +
       .10 * Math.min(cadenceStrain, 3) +
       .08 * Math.max(0, powerLoad - 1)
     ) *
+    rowerSweatRate() *
+    (raceDay?.heat || 1) *
     s.sweat *
     hour
     : 0;
@@ -258,11 +349,14 @@ function updateBody(dt, s, raceSec, active) {
 
   const saltScore = clamp(
     1 -
-      Math.max(0, -sodiumBalance) / 3000 -
-      Math.max(0, sodiumBalance - 4200) / 5000
+      Math.max(0, -sodiumBalance) / 6000 -
+      Math.max(0, sodiumBalance - 4200) / 10000
   );
 
-  energy = 100 * clamp((carbs - 25) / 395);
+  energy = 100 * clamp(
+    .85 * (carbs - 25) / 395 +
+    .15 * bloodCarbs / 25
+  );
 
   hydration = 100 * clamp(
     fluidScore * saltScore
@@ -272,36 +366,6 @@ function updateBody(dt, s, raceSec, active) {
    * Normaali fyysinen rasitus +
    * liian suuren vetotahdin rasitus.
    */
-  const strain = active
-    ? (
-      .65 +
-      7.2 * Math.pow(effort, 3) +
-      12 * cadenceStrain +
-      90 * overdrive
-    ) *
-    powerLoad *
-    dayStrain *
-    hour
-    : 0;
-
-  const damage = active
-    ? (
-      Math.max(0, 55 - energy) +
-      Math.max(0, 60 - hydration)
-    ) /
-    70 *
-    hour *
-    5
-    : 0;
-
-  stamina = clamp(
-    stamina -
-      strain * (1.7 - rower.endurance / 99) -
-      damage,
-    0,
-    100
-  );
-
   if (rower.blisterImmune) {
     blisters = 0;
   } else if (raceSec >= 1800) {

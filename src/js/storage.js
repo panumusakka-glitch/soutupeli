@@ -1,14 +1,49 @@
 const SAVE_KEY = 'suursoutu-race-v1';
+const ROUTE_RECORD_KEY = 'suursoutu-route-records-v1';
 const SAVE_SLOTS = [SAVE_KEY, `${SAVE_KEY}-2`, `${SAVE_KEY}-3`];
+const defaultRouteRecords = {
+  male: {name: 'Ari Kankkunen', seconds: 5 * 3600 + 4 * 60 + 50, year: 1991},
+  female: {name: 'Hanna Tuominen', seconds: 6 * 3600 + 60 + 11, year: 2009}
+};
 const renamedRowers = {'Joey Power': 'Joel Naukkarinen', 'Kankku King': 'Ari Kankkunen', 'Heikki Fjord': 'Heikki Karjaluoto', 'Sauli Niinistö': 'Sale Steel'};
 let activeSaveSlot = 1,
   pausedSaveSlot = null;
+function routeRecord(gender) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ROUTE_RECORD_KEY));
+    const record = saved?.[gender];
+    return record && typeof record.name === 'string' && Number.isFinite(record.seconds) && record.seconds > 0
+      ? record
+      : defaultRouteRecords[gender];
+  } catch {
+    return defaultRouteRecords[gender];
+  }
+}
+function routeRecordLabel(gender) {
+  const record = routeRecord(gender);
+  const title = gender === 'female' ? 'Naisten reittiennätys' : 'Reittiennätys';
+  const time = formatTime(record.seconds).replaceAll(':', '.');
+  return `${title}: ${record.name} – ${time}${record.year ? ` (${record.year})` : ''}`;
+}
+function updateRouteRecord(gender, name, seconds) {
+  const current = routeRecord(gender);
+  if (seconds >= current.seconds) return false;
+  try {
+    const saved = JSON.parse(localStorage.getItem(ROUTE_RECORD_KEY)) || {};
+    saved[gender] = {name, seconds};
+    localStorage.setItem(ROUTE_RECORD_KEY, JSON.stringify(saved));
+    return true;
+  } catch {
+    return false;
+  }
+}
 const stateRanges = {
   elapsed: [0, 1e8],
   distance: [0, TOTAL - .00001],
   speed: [0, Math.max(...rowers.map(r => maxRowerSpeed(r)))],
   quality: [0, 1],
   carbs: [0, 420],
+  bloodCarbs: [0, 60],
   gutCarbs: [0, 2000],
   fluidBalance: [-100, 100],
   gutFluid: [0, 30],
@@ -16,6 +51,7 @@ const stateRanges = {
   gutSodium: [0, 1e5],
   gutStress: [0, 100],
   stamina: [0, 100],
+  techniqueControl: [0, 1],
   hydration: [0, 100],
   energy: [0, 100],
   blisters: [0, 100],
@@ -31,6 +67,12 @@ function validRace(s) {
 function loadRace(slot = activeSaveSlot) {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_SLOTS[slot - 1]));
+    if (s && !Number.isFinite(s.bloodCarbs)) s.bloodCarbs = 20;
+    if (s && !Number.isFinite(s.techniqueControl)) s.techniqueControl = 1;
+    if (s?.raceDay && !Number.isFinite(s.raceDay.heat)) s.raceDay.heat = 1;
+    if (Array.isArray(s?.bots)) s.bots.forEach(bot => {
+      if (bot.day && !Number.isFinite(bot.day.heat)) bot.day.heat = 1;
+    });
     if (s?.rower && renamedRowers[s.rower]) s.rower = renamedRowers[s.rower];
     if (Array.isArray(s?.bots)) s.bots.forEach(bot => {
       if (renamedRowers[bot.rower]) bot.rower = renamedRowers[bot.rower];
@@ -54,6 +96,7 @@ function snapshot() {
     raceDay,
     raceStats: {...raceStats},
     carbs,
+    bloodCarbs,
     gutCarbs,
     fluidBalance,
     gutFluid,
@@ -61,6 +104,7 @@ function snapshot() {
     gutSodium,
     gutStress,
     stamina,
+    techniqueControl,
     hydration,
     energy,
     blisters,
@@ -72,6 +116,9 @@ function snapshot() {
       rower: bot.rower.name,
       distance: bot.distance,
       speed: bot.speed,
+      lane: bot.lane,
+      laneTarget: bot.laneTarget,
+      routeBias: bot.routeBias,
       stamina: bot.stamina,
       energy: bot.energy,
       day: bot.day,
@@ -110,6 +157,7 @@ function savedRaces() {
   return SAVE_SLOTS.map((_, index) => loadRace(index + 1));
 }
 function showSavedRace() {
+  rowingAudio.startMenuMusic();
   const saves = savedRaces();
   document.body.classList.add('start-menu');
   document.getElementById('resumePanel').hidden = false;
@@ -147,7 +195,6 @@ function chooseSaveSlot(mode, slot) {
   }
   pausedSave = null;
   pausedSaveSlot = null;
-  document.body.classList.remove('start-menu');
   document.getElementById('resumePanel').hidden = true;
   document.getElementById('selectionPanel').hidden = false;
   document.getElementById('startInstructions').hidden = false;
@@ -180,6 +227,7 @@ function resumeRace(slot = activeSaveSlot) {
       ? {...s.raceStats}
       : newRaceStats();
   carbs = s.carbs;
+  bloodCarbs = s.bloodCarbs;
   gutCarbs = s.gutCarbs;
   fluidBalance = s.fluidBalance;
   gutFluid = s.gutFluid;
@@ -187,6 +235,7 @@ function resumeRace(slot = activeSaveSlot) {
   gutSodium = s.gutSodium;
   gutStress = s.gutStress;
   stamina = s.stamina;
+  techniqueControl = s.techniqueControl;
   hydration = s.hydration;
   energy = s.energy;
   blisters = s.blisters;
@@ -195,12 +244,15 @@ function resumeRace(slot = activeSaveSlot) {
     ...s.inventory
   };
   if (Array.isArray(s.bots)) {
-    botRacers = s.bots.flatMap(saved => {
+    botRacers = s.bots.flatMap((saved, index) => {
       const botRower = rowers.find(r => r.name === saved.rower);
       return botRower && Number.isFinite(saved.distance) && Number.isFinite(saved.speed) && Number.isFinite(saved.stamina) && Number.isFinite(saved.energy) ? [{
         rower: botRower,
         distance: clamp(saved.distance, 0, TOTAL),
         speed: clamp(saved.speed, 0, maxRowerSpeed(botRower)),
+        lane: Number.isFinite(saved.lane) ? clamp(saved.lane, -2, 2) : initialRaceLane(index),
+        laneTarget: Number.isFinite(saved.laneTarget) ? clamp(saved.laneTarget, -2, 2) : initialRaceLane(index),
+        routeBias: Number.isFinite(saved.routeBias) ? clamp(saved.routeBias, -2, 2) : initialRaceLane(index),
         stamina: clamp(saved.stamina, 0, 100),
         energy: clamp(saved.energy, 0, 100),
         day: validRaceDay(saved.day) ? saved.day : randomRaceDay(botRower),
@@ -210,6 +262,7 @@ function resumeRace(slot = activeSaveSlot) {
   }
   rowerChatter.restore(s.chatter, rower.name, raceElapsed);
   running = true;
+  recordEligible = true;
   document.body.classList.remove('start-menu');
   last = performance.now();
   phaseStart = last - TARGET_RECOVERY * 1000;

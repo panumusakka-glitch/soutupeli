@@ -8,8 +8,10 @@ function reset() {
   document.body.classList.remove('race-mode');
   cancelStroke();
   running = false;
+  recordEligible = false;
   pressing = false;
-  speed = distance = 0;
+  speed = 0;
+  distance = START_GRID_DISTANCE;
   resetBotRacers();
   strokeTimes = [];
   lastDrive = lastRecovery = 0;
@@ -17,10 +19,12 @@ function reset() {
   strokePower = Number.isFinite(rower.racePower) ? rower.racePower : 70;
   raceDay = null;
   raceStats = newRaceStats();
-  strokePulse = feedbackTimer = 0;
+  strokePulse = feedbackTimer = powerSurge = 0;
+  lastPowerSetting = strokePower;
 
   ({
     carbs,
+    bloodCarbs,
     gutCarbs,
     fluidBalance,
     gutFluid,
@@ -28,6 +32,7 @@ function reset() {
     gutSodium,
     gutStress,
     stamina,
+    techniqueControl,
     hydration,
     energy,
     blisters,
@@ -53,13 +58,22 @@ function reset() {
   updateUI();
 }
 
+const RACE_LANES = [-2, -1, 0, 1, 2];
+const START_GRID_DISTANCE = 12;
+const START_GRID_ROW_GAP = 4;
+function initialRaceLane(index) {
+  return RACE_LANES[index % RACE_LANES.length];
+}
 function resetBotRacers() {
   botRacers = rowers
     .filter(r => r.name !== rower.name)
-    .map(r => ({
+    .map((r, index) => ({
       rower: r,
-      distance: 0,
+      distance: START_GRID_DISTANCE + (Math.floor(index / RACE_LANES.length) - 2) * START_GRID_ROW_GAP,
       speed: 0,
+      lane: initialRaceLane(index),
+      laneTarget: initialRaceLane(index),
+      routeBias: initialRaceLane(index),
       stamina: 100,
       energy: 100,
       day: null,
@@ -74,6 +88,7 @@ function randomRaceDay(r) {
     form: majorProblem ? .64 : clamp(1 + variation * .12, .78, 1.14),
     strain: majorProblem ? 1.45 : clamp(1 - variation * .16, .82, 1.22),
     windStrain: majorProblem ? 1.45 : clamp(1 + variation * .25, .82, 1.25),
+    heat: majorProblem ? 1.16 : clamp(1 + variation * .10, .90, 1.12),
     stamina: majorProblem ? 70 : clamp(94 + variation * 12, 76, 100),
     energy: majorProblem ? 70 : clamp(94 + variation * 12, 76, 100),
     hydration: majorProblem ? 78 : clamp(95 + variation * 8, 80, 100),
@@ -84,7 +99,7 @@ function randomRaceDay(r) {
   };
 }
 function validRaceDay(day) {
-  return day && ['form', 'strain', 'windStrain', 'stamina', 'energy', 'hydration', 'cramps', 'blisters', 'fadeAt', 'fade'].every(key => Number.isFinite(day[key]));
+  return day && ['form', 'strain', 'windStrain', 'heat', 'stamina', 'energy', 'hydration', 'cramps', 'blisters', 'fadeAt', 'fade'].every(key => Number.isFinite(day[key]));
 }
 function raceDayFactor(day, progress = distance) {
   if (!day) return 1;
@@ -97,6 +112,7 @@ function prepareRaceDay() {
   energy = raceDay.energy;
   hydration = raceDay.hydration;
   carbs = 25 + 395 * energy / 100;
+  bloodCarbs = clamp(10 + energy * .2, 8, 30);
   fluidBalance = (hydration - 100) / 31.25;
   cramps = raceDay.cramps;
   blisters = raceDay.blisters;
@@ -105,6 +121,36 @@ function prepareRaceDay() {
     bot.stamina = bot.day.stamina;
     bot.energy = bot.day.energy;
   }
+}
+function botPowerPlan(bot, s) {
+  const progress = bot.distance / TOTAL;
+  const planned = criticalStrokePower(bot.rower) +
+    1.5 +
+    (s.wind ? 2 : 0) +
+    (progress > .85 ? 4 : 0);
+  return Math.max(bot.rower.racePower || 0, planned);
+}
+function effectiveBotPower(bot, requestedPower) {
+  const critical = criticalStrokePower(bot.rower);
+  if (requestedPower <= critical) return requestedPower;
+  return critical + (requestedPower - critical) * clamp(bot.stamina / 20);
+}
+function updateBotWPrime(bot, dt, requestedPower) {
+  const excess = requestedPower - criticalStrokePower(bot.rower);
+  if (excess > 0) bot.stamina = clamp(bot.stamina - excess * dt / 90, 0, 100);
+  else bot.stamina = clamp(bot.stamina - excess * dt / 160, 0, 100);
+}
+function trafficLane(racer) {
+  return racer.player ? 0 : racer.lane;
+}
+function openLaneFor(bot, racers) {
+  const preferred = [bot.routeBias, -2, -1, 1, 2, 0]
+    .filter((lane, index, lanes) => lanes.indexOf(lane) === index);
+  return preferred.find(lane => !racers.some(racer =>
+    racer !== bot &&
+    Math.abs(racer.distance - bot.distance) < 58 &&
+    Math.abs(trafficLane(racer) - lane) < .7
+  ));
 }
 function updateBotRacers(dt, s) {
   for (const bot of botRacers) {
@@ -126,20 +172,39 @@ function updateBotRacers(dt, s) {
       .72 + .28 * r.speed / 99;
 
     const maxSpeed = maxRowerSpeed(r);
-    const botPower = r.racePower || 70;
-    const powerLoad = Math.pow(botPower / 70, 2);
-    const overdrive = Math.max(0, (botPower - 100) / 10);
+    const botPower = botPowerPlan(bot, s);
+    const usablePower = effectiveBotPower(bot, botPower);
+    const powerLoad = 1;
+    const overdrive = 0;
 
-    const target =
-      (7.05 + 4.75 * Math.pow(r.skill / 99, 2.2)) *
+    let target =
+      RACE_SPEED_FACTOR * (7.05 + 4.75 * Math.pow(r.skill / 99, 2.2)) *
       (maxSpeed / MAX_SPEED) *
       bodyFactor *
       speedFactor *
-      botPower / 70 *
+      (r.racePower || 70) / 70 *
+      usablePower / botPower *
       (.90 + .02 * 5) *
       (1 + .015) *
       raceDayFactor(day, bot.distance) *
       (s.wind ? 1 / day.windStrain : 1);
+
+    const racers = [
+      {player: true, distance, speed},
+      ...botRacers
+    ];
+    const ahead = racers
+      .filter(racer => racer !== bot && racer.distance > bot.distance && racer.distance - bot.distance < 52 && Math.abs(trafficLane(racer) - bot.lane) < .7)
+      .sort((a, b) => a.distance - b.distance)[0];
+    if (ahead && target > ahead.speed + .12) {
+      const lane = openLaneFor(bot, racers);
+      if (lane !== undefined) bot.laneTarget = lane;
+      else target = Math.min(target, ahead.speed * .98);
+    } else if (Math.abs(bot.laneTarget - bot.routeBias) > .1) {
+      const lane = openLaneFor(bot, racers);
+      if (lane !== undefined) bot.laneTarget = lane;
+    }
+    bot.lane += clamp(bot.laneTarget - bot.lane, -.9 * dt, .9 * dt);
 
     const effort =
       clamp((bot.speed - 7.2) / 4.6);
@@ -153,18 +218,7 @@ function updateBotRacers(dt, s) {
     bot.distance +=
       bot.speed / 3.6 * dt;
 
-    bot.stamina = clamp(
-      bot.stamina -
-        (.65 + 7.2 * Math.pow(effort, 3) + 90 * overdrive) *
-          powerLoad *
-          dt /
-          3600 *
-          (1.7 - r.endurance / 99) *
-          day.strain *
-          (s.wind ? day.windStrain : 1),
-      0,
-      100
-    );
+    updateBotWPrime(bot, dt, botPower);
 
     bot.energy = clamp(
       bot.energy -
@@ -214,6 +268,7 @@ function start() {
   rowerChatter.arm(rower.name, true);
 
   running = true;
+  recordEligible = true;
   document.body.classList.remove('start-menu');
   document.body.classList.add('race-mode');
 
@@ -347,9 +402,9 @@ function update(dt, now) {
 
   const ideal = active
     ? (
-        7.05 +
+        RACE_SPEED_FACTOR * (7.05 +
         4.75 *
-          Math.pow(quality, 2.2)
+          Math.pow(quality, 2.2))
       ) *
         (maxRowerSpeed() / MAX_SPEED) *
         bodyFactor *
@@ -357,7 +412,7 @@ function update(dt, now) {
         crampFactor() *
         (.72 + .28 * rower.speed / 99) *
         boatSpeedFactor() *
-        strokePower / 70 *
+        effectiveStrokePower() / 70 *
         raceDayFactor(raceDay) *
         cadenceEfficiency -
       (
@@ -407,7 +462,7 @@ function update(dt, now) {
   raceStats.maxSpeed = Math.max(raceStats.maxSpeed, speed);
   if (active) {
     raceStats.activeSeconds += dt;
-    raceStats.powerIntegral += strokePower * dt;
+    raceStats.powerIntegral += effectiveStrokePower() * dt;
     raceStats.cadenceIntegral += currentStrokeRate(now) * dt;
     raceStats.qualityIntegral += quality * dt;
   }
@@ -455,6 +510,13 @@ function update(dt, now) {
       place
     );
 
+    const newRouteRecord = recordEligible && updateRouteRecord(
+      rower.voiceGender,
+      rower.name,
+      sec
+    );
+    recordEligible = false;
+
     setProvisions(false);
     cancelStroke();
 
@@ -468,7 +530,7 @@ function update(dt, now) {
       .textContent =
       formatTime(sec);
 
-    showFinishReport(sec, place);
+    showFinishReport(sec, place, newRouteRecord);
 
     ui.finish.classList.remove(
       'hidden'

@@ -114,8 +114,8 @@ function hasWaterClearance(x, y, clearance) {
   }
   return true;
 }
-function nearestWaterPoint(x, y, clearance = 0) {
-  for (let radius = 0; radius <= 120; radius++) for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
+function nearestWaterPoint(x, y, clearance = 0, maxRadius = 120) {
+  for (let radius = 0; radius <= maxRadius; radius++) for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
     if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
     const nx = x + dx, ny = y + dy;
     if (nx >= 0 && nx < 805 && ny >= 0 && ny < 851 && hasWaterClearance(nx, ny, clearance)) return [nx, ny];
@@ -169,6 +169,40 @@ function botPointOnWater(progress, w, h) {
   const p = waterRoute.at(-1);
   return {x: p[0] / 805 * w, y: p[1] / 851 * h, angle: 0};
 }
+/*
+ * Lähtöruudukko on vain kartan esitystapa: kaikki kilpailijat ovat heti
+ * nähtävissä sillan jälkeen viidessä rinnakkaisessa lähtökaistassa.
+ * Muodostelma sulautuu varsinaiseen reittisijaintiin ensimmäisten metrien
+ * aikana, joten kilpailun mittaus ja sijoitukset eivät muutu.
+ */
+function formationPoint(racerDistance, racerIndex, racerCount, racerLane, m) {
+  const release = clamp(racerDistance / 140);
+  const p = botPointOnWater(racerDistance / TOTAL, 805, 851);
+  const columns = 5;
+  const column = racerIndex % columns - (columns - 1) / 2;
+  const sideways = (column * (1 - release) + racerLane * release) * 4.5;
+  const forwards = 0;
+  const offsetX = Math.cos(p.angle) * forwards - Math.sin(p.angle) * sideways;
+  const offsetY = Math.sin(p.angle) * forwards + Math.cos(p.angle) * sideways;
+  let laneFraction = 1;
+  if (!hasWaterClearance(Math.round(p.x + offsetX), Math.round(p.y + offsetY), 2)) {
+    // Stay on the current water path and shrink the lane offset smoothly.
+    // Do not snap to another lake pixel: that made boats visibly jump.
+    let low = 0,
+      high = 1;
+    for (let i = 0; i < 8; i++) {
+      const middle = (low + high) / 2;
+      if (hasWaterClearance(Math.round(p.x + offsetX * middle), Math.round(p.y + offsetY * middle), 2)) low = middle;
+      else high = middle;
+    }
+    laneFraction = low;
+  }
+  return {
+    x: (p.x + offsetX * laneFraction) / 805 * m.w,
+    y: (p.y + offsetY * laneFraction) / 851 * m.h,
+    angle: p.angle
+  };
+}
 function draw(now) {
   const w = canvas.clientWidth,
     h = canvas.clientHeight,
@@ -178,11 +212,11 @@ function draw(now) {
   ctx.fillRect(0, 0, w, h);
   if (retroMapReady) {
     ctx.drawImage(retroMap, m.x, m.y, m.w, m.h);
-    for (const bot of botRacers) {
-      const botPoint = botPointOnWater(bot.distance / TOTAL, m.w, m.h);
+    for (const [index, bot] of botRacers.entries()) {
+      const botPoint = formationPoint(bot.distance, index + 1, botRacers.length + 1, bot.lane, m);
       botBoat(m.x + botPoint.x, m.y + botPoint.y, botPoint.angle, bot);
     }
-    const p = botPointOnWater(distance / TOTAL, m.w, m.h);
+    const p = formationPoint(distance, 0, botRacers.length + 1, 0, m);
     boat(m.x + p.x, m.y + p.y, p.angle, now);
   } else {
     ctx.fillStyle = '#eef4ee';
@@ -192,11 +226,11 @@ function draw(now) {
   displayCtx.clearRect(0, 0, w, h);
   displayCtx.drawImage(pixelScene, 0, 0, w, h);
   if (retroMapReady) {
-    for (const bot of botRacers) {
-      const botPoint = botPointOnWater(bot.distance / TOTAL, m.w, m.h);
+    for (const [index, bot] of botRacers.entries()) {
+      const botPoint = formationPoint(bot.distance, index + 1, botRacers.length + 1, bot.lane, m);
       drawBotPortrait({x: m.x + botPoint.x, y: m.y + botPoint.y}, bot);
     }
-    const p = botPointOnWater(distance / TOTAL, m.w, m.h);
+    const p = formationPoint(distance, 0, botRacers.length + 1, 0, m);
     p.x += m.x;
     p.y += m.y;
     drawMapLabels(m, w, h, p);
@@ -205,7 +239,6 @@ function draw(now) {
   }
   const sectionInfo = section();
   document.getElementById('routeSection').textContent = sectionInfo.name;
-  document.getElementById('routeProgress').textContent = `${(distance / TOTAL * 100).toFixed(1).replace('.', ',')} % reitistä`;
   requestAnimationFrame(loop);
 }
 

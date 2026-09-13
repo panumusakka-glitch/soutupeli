@@ -102,9 +102,11 @@ function updateUI(now = performance.now()) {
   ui.raceTime.textContent = formatTime(raceSec);
   const avg = raceSec > 45 ? distance / (raceSec / 3600) / 1000 : 0;
   ui.pacePrediction.textContent = avg > 1 ? `Ennuste ${formatTime(raceSec + (TOTAL - distance) / (avg * 1000) * 3600)}` : 'Ennuste —';
-  setMeter('hydration', hydration, `${fluidBalance < -.1 ? 'Nestevajetta' : fluidBalance > .1 ? 'Nesteylijäämää' : 'Nestemäärä tasapainossa'} ${Math.abs(fluidBalance).toFixed(2)} l · imeytymässä ${(gutFluid * 10).toFixed(1)} dl${sodiumBalance < 0 ? ' · natriumvajetta' : ''}`);
+  const sweatRate = rowerSweatRate() * (raceDay?.heat || 1);
+  const sweatHint = sweatRate > 1 ? 'runsas hikoilu' : sweatRate < .85 ? 'kevyt hikoilu' : 'tavanomainen hikoilu';
+  setMeter('hydration', hydration, `${fluidBalance < -.1 ? 'Nestevajetta' : fluidBalance > .1 ? 'Nesteylijäämää' : 'Nestemäärä tasapainossa'} ${Math.abs(fluidBalance).toFixed(2)} l · ${sweatHint} · imeytymässä ${(gutFluid * 10).toFixed(1)} dl${sodiumBalance < 0 ? ' · natriumvajetta' : ''}`);
   setMeter('energy', energy, energy > 75 ? 'Energiaa riittää' : energy > 45 ? 'Syö pian' : 'Energia loppuu');
-  setMeter('stamina', stamina, stamina > 75 ? 'Hyvin hallinnassa' : stamina > 45 ? 'Rasitus kertyy' : 'Voimat ovat lopussa');
+  setMeter('stamina', stamina, stamina > 75 ? 'Ylitehoreservi kunnossa' : stamina > 20 ? 'Ylitehoreservi hupenee' : 'Ylitehoreservi tyhjä · kevennä soutua');
   ui.blisterValue.textContent = `${Math.round(blisters)} %`;
   ui.blisterBar.style.width = `${blisters}%`;
   ui.blisterHint.textContent = blisters < 5 ? 'Kädet kunnossa' : blisters < 20 ? 'Pieniä rakon alkuja' : blisters < 55 ? 'Rakot tuntuvat vedossa' : 'Kädet ovat pahasti rakoilla';
