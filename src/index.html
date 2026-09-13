@@ -34,9 +34,19 @@
     <section class="lake-wrap">
       <canvas id="lake" aria-label="Ylhäältä kuvattu soutupeli"></canvas>
 
+      <aside class="leaderboard" aria-label="Kilpailutilanne">
+        <div class="leaderboard-head"><h2 id="leaderboardTitle">TILANNE</h2><button id="leaderboardToggle" type="button" aria-expanded="false" aria-controls="leaderboard">Kaikki</button></div>
+        <ol id="leaderboard"></ol>
+      </aside>
       <div id="startOverlay" class="overlay">
-        <div id="resumePanel" class="resume-panel" hidden><strong>Soutu kesken</strong><p id="resumeSummary"></p><button id="resumeButton" type="button">Jatka soutua</button></div>
-        <div class="selection-panel">
+        <img class="start-logo" src="suursoutu-logo-8bit.png" alt="Tuas souvetaa Sulkavalla">
+        <div id="resumePanel" class="resume-panel">
+          <strong id="saveMenuTitle">Valitse pelitapa</strong>
+          <p id="resumeSummary">Jatka aiempaa soutua tai aloita uusi.</p>
+          <div id="saveMenuActions" class="save-menu-actions"><button id="continueMenuButton" type="button">Jatka soutua</button><button id="newGameMenuButton" type="button">Uusi soutu</button></div>
+          <div id="saveSlotPanel" hidden><div id="saveSlots" class="save-slots"></div><button id="saveSlotBack" class="text-button" type="button">Takaisin</button></div>
+        </div>
+        <div id="selectionPanel" class="selection-panel" hidden>
           <h2>Valitse soutaja ja vene</h2>
           <div class="selection-grid">
             <section class="selection-group">
@@ -54,16 +64,17 @@
             </section>
           </div>
           <small>Arvot ja veneiden erot ovat pelihahmojen kuvitteellisia ominaisuuksia. Kramppiherkkyydessä pienempi on parempi. Hahmojen repliikit ovat pelin huumoria.</small>
+          <button id="changeSaveSlot" class="text-button" type="button">Vaihda tallennuspaikkaa</button>
         </div>
-        <p>Lähtö Hakovirran sillalta. Paina karttaa tai <kbd>välilyönti</kbd> pohjaan kiinniotossa.<br>Vedä vihreälle alueelle, vapauta ja anna veneen liukua takaisin kiinniottoon.</p>
-        <p id="saveStatus" role="status">Soutu tallentuu automaattisesti tähän selaimeen.</p><button id="startButton">Lähde Hakovirralta</button>
+        <p id="startInstructions" hidden>Lähtö Hakovirran sillalta. Paina karttaa tai <kbd>välilyönti</kbd> pohjaan kiinniotossa.<br>Vedä vihreälle alueelle, vapauta ja anna veneen liukua takaisin kiinniottoon.</p>
+        <p id="saveStatus" role="status" hidden>Soutu tallentuu automaattisesti tähän selaimeen.</p><button id="startButton" hidden>Lähde Hakovirralta</button>
       </div>
       <div id="pauseOverlay" class="overlay hidden"><h2>Soutu tauolla</h2><p>Aika ja voimavarat pysyvät paikallaan.</p><p id="pauseStatus" role="status"></p><button id="continueButton" type="button">Jatka soutua</button><button id="crewMenuButton" type="button">Aloitusvalikko</button></div>
       <div id="finishOverlay" class="overlay hidden">
         <p class="eyebrow">PARTALANSAARI KIERRETTY</p>
         <h2 id="finishTime">00:00</h2>
         <p id="finishSummary"></p>
-        <button id="againButton">Souda uudelleen</button>
+        <button id="againButton">Uusi soutu</button>
       </div>
     </section>
 
@@ -76,6 +87,7 @@
         </div>
         <p><b id="phase">VALMIS</b><span id="phaseHelp">Paina välilyönti pohjaan</span></p>
       </div>
+      <div class="power-control"><label for="power">VOIMA <output id="powerValue">70 %</output></label><input id="power" type="range" min="30" max="110" value="70" step="1"></div>
       <div class="stroke-result"><strong id="strokeFeedback">Valmistaudu ensimmäiseen vetoon</strong><span id="strokeDetail">Kahva näyttää koko vedon ja palautuksen.</span></div>
       <div class="mobile-actions"><button id="rowButton" type="button">Pidä pohjassa · vedä</button><button id="provisionsToggle" type="button" aria-expanded="false" aria-controls="provisionsPanel">Eväät</button></div>
       <div class="speech-controls"><button id="speechToggle" type="button" aria-pressed="true">Puhe: on</button><button id="swearButton" type="button">Kiroile</button></div>

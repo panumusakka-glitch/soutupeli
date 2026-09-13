@@ -13,6 +13,7 @@ let running = false,
   lastDrive = 0,
   lastRecovery = 0,
   quality = .5,
+  strokePower = 70,
   strokePulse = 0,
   feedbackTimer = 0;
 let {
@@ -36,3 +37,4 @@ let rower = rowers.find(r => r.name === DEFAULT_CREW.rower),
   selectedBoat = boats.find(b => b.name === DEFAULT_CREW.boat),
   material = DEFAULT_CREW.material;
 let botRacers = [];
+let raceDay = null;

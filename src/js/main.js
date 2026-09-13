@@ -9,6 +9,13 @@ rowers.forEach((r, i) => rowerSelect.add(new Option(r.name, i)));
 boats.forEach((b, i) => boatSelect.add(new Option(b.name, i)));
 selectDefaultCrew();
 rowerSelect.onchange = boatSelect.onchange = materialSelect.onchange = selectCrew;
+document.getElementById('power').addEventListener('input', e => {
+  strokePower = Number.isFinite(rower.racePower)
+    ? rower.racePower
+    : clamp(Number(e.target.value), 30, 110);
+  updateUI();
+});
+ui.leaderboardToggle.onclick = () => setLeaderboardExpanded(!leaderboardExpanded);
 addEventListener('resize', resize);
 resize();
 document.querySelectorAll('.provision').forEach(b => b.addEventListener('click', () => consume(b.dataset.item)));
@@ -18,7 +25,10 @@ document.getElementById('closeProvisions').onclick = () => {
   provisionsToggle.focus();
 };
 addEventListener('keydown', e => {
-  if (e.code === 'Escape') setProvisions(false);
+  if (e.code === 'Escape') {
+    setProvisions(false);
+    setLeaderboardExpanded(false);
+  }
 });
 rowButton.addEventListener('pointerdown', down);
 rowButton.addEventListener('pointerup', up);
@@ -38,13 +48,31 @@ document.addEventListener('visibilitychange', () => {
 });
 ['contextmenu', 'selectstart', 'dragstart'].forEach(type => canvas.addEventListener(type, e => e.preventDefault()));
 document.getElementById('startButton').onclick = start;
-document.getElementById('againButton').onclick = start;
+document.getElementById('againButton').onclick = () => {
+  reset();
+  selectDefaultCrew();
+  showSavedRace();
+};
 document.getElementById('resetButton').onclick = pauseRace;
 mapImage.onload = cleanMapImage.onload = prepareMap;
 mapImage.src = 'partalansaari-map.png';
 cleanMapImage.src = 'map-marker-cleanup.png';
 mapToggle.onclick = () => setMapOverview(!mapOverview);
-document.getElementById('resumeButton').onclick = resumeRace;
+document.getElementById('continueMenuButton').onclick = () => showSaveSlots('continue');
+document.getElementById('newGameMenuButton').onclick = () => showSaveSlots('new');
+document.getElementById('saveSlotBack').onclick = showSavedRace;
+document.getElementById('changeSaveSlot').onclick = () => {
+  document.getElementById('selectionPanel').hidden = true;
+  document.getElementById('startInstructions').hidden = true;
+  document.getElementById('saveStatus').hidden = true;
+  document.getElementById('startButton').hidden = true;
+  document.getElementById('resumePanel').hidden = false;
+  showSaveSlots('new');
+};
+document.getElementById('saveSlots').onclick = event => {
+  const button = event.target.closest('.save-slot');
+  if (button && !button.disabled) chooseSaveSlot(button.dataset.mode, Number(button.dataset.slot));
+};
 document.getElementById('continueButton').onclick = resumeRace;
 document.getElementById('crewMenuButton').onclick = () => {
   reset();

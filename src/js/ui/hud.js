@@ -26,8 +26,26 @@ const ui = {
   blisterHint: document.getElementById('blisterHint'),
   raceTime: document.getElementById('raceTime'),
   pacePrediction: document.getElementById('pacePrediction'),
+  power: document.getElementById('power'),
+  powerValue: document.getElementById('powerValue'),
+  leaderboardTitle: document.getElementById('leaderboardTitle'),
+  leaderboardToggle: document.getElementById('leaderboardToggle'),
+  leaderboard: document.getElementById('leaderboard'),
   lastIntake: document.getElementById('lastIntake')
 };
+let leaderboardExpanded = false;
+const womensLeaderboard = new Set([
+  'Marika Laaksonen',
+  'Hanna Tuominen',
+  'Sanna Piili'
+]);
+function setLeaderboardExpanded(value) {
+  leaderboardExpanded = value;
+  ui.leaderboard.parentElement.classList.toggle('expanded', value);
+  ui.leaderboardToggle.setAttribute('aria-expanded', String(value));
+  ui.leaderboardToggle.textContent = value ? 'Sulje' : 'Kaikki';
+  updateLeaderboard();
+}
 function formatTime(sec) {
   sec = Math.max(0, Math.floor(sec));
   return `${String(Math.floor(sec / 3600)).padStart(2, '0')}:${String(Math.floor(sec % 3600 / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
@@ -40,7 +58,12 @@ function setMeter(kind, value, hint) {
 }
 function updateUI(now = performance.now()) {
   updateCrampUI();
+  updateLeaderboard();
   ui.speed.textContent = speed.toFixed(1).replace('.', ',');
+  if (Number.isFinite(rower.racePower)) strokePower = rower.racePower;
+  ui.power.disabled = Number.isFinite(rower.racePower);
+  ui.power.value = strokePower;
+  ui.powerValue.textContent = `${strokePower} %`;
   ui.distance.textContent = (distance / 1000).toFixed(1).replace('.', ',');
   const recent = strokeTimes.filter(t => now - t < 15000);
   ui.spm.textContent = recent.length < 2 ? '0' : Math.round((recent.length - 1) * 60000 / (recent.at(-1) - recent[0]));
@@ -85,6 +108,26 @@ function updateUI(now = performance.now()) {
   ui.blisterValue.textContent = `${Math.round(blisters)} %`;
   ui.blisterBar.style.width = `${blisters}%`;
   ui.blisterHint.textContent = blisters < 5 ? 'Kädet kunnossa' : blisters < 20 ? 'Pieniä rakon alkuja' : blisters < 55 ? 'Rakot tuntuvat vedossa' : 'Kädet ovat pahasti rakoilla';
+}
+function updateLeaderboard() {
+  const racers = [{name: rower.name, distance, finishedAt: distance >= TOTAL ? raceElapsed : null, player: true}, ...botRacers.map(bot => ({...bot, name: bot.rower.name}))];
+  racers.sort((a, b) => {
+    if (a.finishedAt !== null || b.finishedAt !== null) {
+      if (a.finishedAt === null) return 1;
+      if (b.finishedAt === null) return -1;
+      return a.finishedAt - b.finishedAt;
+    }
+    return b.distance - a.distance;
+  });
+  const womenOnly = womensLeaderboard.has(rower.name) && !leaderboardExpanded;
+  const leaderboardRacers = womenOnly
+    ? racers.filter(racer => womensLeaderboard.has(racer.name))
+    : racers;
+  const playerRank = leaderboardRacers.findIndex(racer => racer.player) + 1;
+  ui.leaderboardTitle.textContent = `TILANNE · ${playerRank}/${leaderboardRacers.length}`;
+  const ranked = leaderboardRacers.map((racer, index) => ({...racer, rank: index + 1}));
+  const visible = leaderboardExpanded || womenOnly ? ranked : ranked.filter(racer => racer.rank <= 5 || racer.player);
+  ui.leaderboard.innerHTML = visible.map(racer => `<li${racer.player ? ' class="player"' : ''}><b>${racer.rank}.</b><span>${racer.name}</span><small>${racer.finishedAt !== null ? formatTime(racer.finishedAt) : `${(racer.distance / 1000).toFixed(1).replace('.', ',')} km`}</small></li>`).join('');
 }
 function updateCrampUI() {
   document.getElementById('crampValue').textContent = `${Math.round(cramps)} %`;

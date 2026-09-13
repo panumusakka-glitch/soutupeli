@@ -1,7 +1,25 @@
+const portraitCrops = {
+  'Mauno Myllym\u00e4ki': [.1, 0, .65, .65],
+  'Esa Melanen': [.23, 0, .64, .64],
+  'Jorma Suortti': [.14, .02, .7, .7],
+  'Einari Luukkonen': [.15, 0, .7, .7],
+  'Marko Lepp\u00e4m\u00e4ki': [.18, .03, .65, .65]
+};
 const portraitFiles = {
   'Heikki Karjaluoto': 'heikki-karjaluoto.png',
   'Ari Kankkunen': 'ari-kankkunen.png',
   'Panu Musakka': 'panu-musakka.png',
+  'Jari Kuhno': 'jari-kuhno.png',
+  'Hannu Pasanen': 'hannu-pasanen.png',
+  'Joni N\u00e4rhi': 'joni-narhi.png',
+  'Marika Laaksonen': 'marika-laaksonen.png',
+  'Sanna Piili': 'sanna-piili.png',
+  'Hanna Tuominen': 'hanna-tuominen.png',
+  'Mauno Myllym\u00e4ki': 'mauno-myllymaki.png',
+  'Esa Melanen': 'esa-melanen.png',
+  'Jorma Suortti': 'jorma-suortti.png',
+  'Einari Luukkonen': 'einari-luukkonen.png',
+  'Marko Lepp\u00e4m\u00e4ki': 'marko-leppamaki.png',
   'Toni Sirviö': 'toni-sirvio.png',
   'Seppo Räty': 'seppo-raty.png',
   'Sauli Niinistö': 'sauli-niinisto.png'

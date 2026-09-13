@@ -147,6 +147,28 @@ const rowingAudio = (() => {
       track(source, filter, gain, t + .85);
     }
   }
+  function starterShot() {
+    unlock();
+    if (!enabled || !context || !noise || context.state !== 'running') return;
+    const now = context.currentTime;
+    // A sharp crack followed by a low, short-lived boom.
+    wash(.8, 1.45, 4200);
+    const boom = context.createOscillator(),
+      gain = context.createGain();
+    boom.type = 'triangle';
+    boom.frequency.setValueAtTime(105, now);
+    boom.frequency.exponentialRampToValueAtTime(42, now + .48);
+    gain.gain.setValueAtTime(.9, now);
+    gain.gain.exponentialRampToValueAtTime(.001, now + .65);
+    boom.connect(gain);
+    gain.connect(master);
+    boom.onended = () => {
+      boom.disconnect();
+      gain.disconnect();
+    };
+    boom.start(now);
+    boom.stop(now + .7);
+  }
   function catchOar() {
     unlock();
     stop();
@@ -179,6 +201,7 @@ const rowingAudio = (() => {
     catchOar,
     release,
     stop,
+    starterShot,
     cheerStart,
     stopCrowd,
     isEnabled: () => enabled

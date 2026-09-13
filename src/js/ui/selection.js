@@ -6,6 +6,8 @@ function selectCrew() {
   const hasRower = rowerSelect.value !== '';
   const hasBoat = boatSelect.value !== '';
   if (hasRower) rower = rowers[Number(rowerSelect.value)];
+  if (hasRower && Number.isFinite(rower.racePower)) strokePower = rower.racePower;
+  ui.power.disabled = hasRower && Number.isFinite(rower.racePower);
   if (hasBoat) selectedBoat = boats[Number(boatSelect.value)];
   materialSelect.querySelector('[value=mahogany]').disabled = hasBoat && !!selectedBoat.spruceOnly;
   if (hasBoat && selectedBoat.spruceOnly && materialSelect.value === 'mahogany') materialSelect.value = '';

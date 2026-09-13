@@ -50,7 +50,7 @@ function up(e) {
     rowerChatter.badStroke(quality, raceElapsed);
     strokePulse = 1;
     feedbackTimer = 1.4;
-    speed = clamp(speed + (.10 + .26 * quality) * (rower.power / 99) * crampFactor() * (.7 + .3 * rower.speed / 99), 0, maxRowerSpeed());
+    speed = clamp(speed + (.10 + .26 * quality) * (rower.power / 99) * (strokePower / 70) * crampFactor() * (.7 + .3 * rower.speed / 99), 0, maxRowerSpeed());
     if (quality > .88) {
       ui.feedback.textContent = 'PUHDAS VETO';
       ui.feedbackDetail.textContent = 'Irrotus osui ja vene jatkaa liukua.';

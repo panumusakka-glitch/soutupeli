@@ -6,11 +6,31 @@ const portraits = Object.fromEntries(Object.entries(portraitFiles).map(([name, s
 function portraitMask() {
   return rower.name === 'Seppo Räty' ? seppoPortraitMask : rower.name === 'Ari Kankkunen' ? ariPortraitMask : rower.name === 'Toni Sirviö' ? toniPortraitMask : null;
 }
+function botPortraitMask(name) {
+  return name === 'Seppo Räty' ? seppoPortraitMask : name === 'Ari Kankkunen' ? ariPortraitMask : name === 'Toni Sirviö' ? toniPortraitMask : null;
+}
+function drawPortraitImage(c, portrait, name, x, y, size) {
+  const crop = portraitCrops[name];
+  if (!crop) {
+    c.drawImage(portrait, x, y, size, size);
+    return;
+  }
+  c.drawImage(
+    portrait,
+    crop[0] * portrait.naturalWidth,
+    crop[1] * portrait.naturalHeight,
+    crop[2] * portrait.naturalWidth,
+    crop[3] * portrait.naturalHeight,
+    x,
+    y,
+    size,
+    size
+  );
+}
 function boat(x, y, angle, now) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle + Math.PI / 2);
-  ctx.translate(0, -strokePulse * 3);
   if (strokePulse > 0) {
     ctx.strokeStyle = `rgba(220,246,238,${strokePulse * .65})`;
     ctx.lineWidth = 1.5;
@@ -126,6 +146,22 @@ function botBoat(x, y, angle, bot) {
   ctx.stroke();
   ctx.restore();
 }
+function drawBotPortrait(p, bot) {
+  const portrait = portraits[bot.rower.name];
+  if (!portrait?.complete || !portrait.naturalWidth) return;
+  displayCtx.save();
+  displayCtx.imageSmoothingEnabled = true;
+  displayCtx.imageSmoothingQuality = 'high';
+  const mask = botPortraitMask(bot.rower.name);
+  if (mask) {
+    displayCtx.beginPath();
+    mask.forEach(([x, y], i) => displayCtx[i ? 'lineTo' : 'moveTo'](p.x - 12 + x * 24, p.y - 17 + y * 24));
+    displayCtx.closePath();
+    displayCtx.clip();
+  }
+  drawPortraitImage(displayCtx, portrait, bot.rower.name, p.x - 12, p.y - 17, 24);
+  displayCtx.restore();
+}
 function drawRowerPortrait(p, now) {
   const portrait = portraits[rower.name];
   if (!portrait?.complete || !portrait.naturalWidth) return;
@@ -136,7 +172,7 @@ function drawRowerPortrait(p, now) {
   c.imageSmoothingQuality = 'high';
   c.translate(p.x, p.y);
   c.rotate(p.angle + Math.PI / 2);
-  c.translate(0, 3 - 7 * t - strokePulse * 3);
+  c.translate(0, 3 - 7 * t);
   c.rotate(-p.angle - Math.PI / 2);
   if (portraitMask()) {
     c.beginPath();
@@ -144,6 +180,6 @@ function drawRowerPortrait(p, now) {
     c.closePath();
     c.clip();
   }
-  c.drawImage(portrait, -14, -19, 28, 28);
+  drawPortraitImage(c, portrait, rower.name, -14, -19, 28);
   c.restore();
 }

@@ -1,13 +1,13 @@
 // Fictional game ratings. Higher cramp is worse; other stats help.
 const rowers = [{
   "name": "Heikki Karjaluoto",
-  "speed": 97,
-  "endurance": 97,
+  "speed": 98,
+  "endurance": 99,
   "skill": 99,
   "cramp": 10,
   "hands": 99,
   "stomach": 99,
-  "power": 99,
+  "power": 98,
   "blisterImmune": false,
   "voiceGender": "male"
 }, {
@@ -60,45 +60,45 @@ const rowers = [{
 }, {
   "name": "Panu Musakka",
   "speed": 85,
-  "endurance": 70,
-  "skill": 50,
+  "endurance": 72,
+  "skill": 68,
   "cramp": 70,
-  "hands": 40,
+  "hands": 70,
   "stomach": 50,
-  "power": 99,
+  "power": 95,
   "blisterImmune": false,
   "voiceGender": "male"
 }, {
   "name": "Jorma Suortti",
-  "speed": 94,
-  "endurance": 96,
+  "speed": 98,
+  "endurance": 99,
   "skill": 98,
   "cramp": 12,
   "hands": 98,
   "stomach": 90,
-  "power": 99,
+  "power": 98,
   "blisterImmune": false,
   "voiceGender": "male"
 }, {
   "name": "Esa Melanen",
   "speed": 93,
-  "endurance": 95,
+  "endurance": 97,
   "skill": 96,
   "cramp": 18,
-  "hands": 95,
+  "hands": 98,
   "stomach": 90,
-  "power": 99,
+  "power": 93,
   "blisterImmune": false,
   "voiceGender": "male"
 }, {
   "name": "Mauno Myllymäki",
-  "speed": 95,
-  "endurance": 97,
-  "skill": 97,
+  "speed": 89,
+  "endurance": 98,
+  "skill": 98,
   "cramp": 15,
-  "hands": 98,
+  "hands": 99,
   "stomach": 92,
-  "power": 99,
+  "power": 88,
   "blisterImmune": false,
   "voiceGender": "male"
 }, {
@@ -147,22 +147,22 @@ const rowers = [{
   "voiceGender": "male"
 }, {
   "name": "Jari Kuhno",
-  "speed": 97,
-  "endurance": 98,
-  "skill": 98,
+  "speed": 98,
+  "endurance": 99,
+  "skill": 99,
   "cramp": 12,
-  "hands": 90,
+  "hands": 98,
   "stomach": 80,
-  "power": 99,
+  "power": 97,
   "blisterImmune": false,
   "voiceGender": "male"
 }, {
   "name": "Toni Sirviö",
-  "speed": 95,
-  "endurance": 94,
-  "skill": 90,
+  "speed": 91,
+  "endurance": 88,
+  "skill": 86,
   "cramp": 22,
-  "hands": 86,
+  "hands": 84,
   "stomach": 82,
   "power": 99,
   "blisterImmune": false,
@@ -176,6 +176,7 @@ const rowers = [{
   "hands": 99,
   "stomach": 65,
   "power": 150,
+  "racePower": 110,
   "blisterImmune": true,
   "voiceGender": "male"
 }, {

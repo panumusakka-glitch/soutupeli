@@ -17,7 +17,10 @@ function resize() {
 const mapImage = new Image(),
   cleanMapImage = new Image();
 const retroMap = document.createElement('canvas');
-let retroMapReady = false;
+let retroMapReady = false,
+  waterPixels,
+  waterRoute,
+  waterRoutePixels;
 function prepareMap() {
   if (!mapImage.complete || !mapImage.naturalWidth || !cleanMapImage.complete || !cleanMapImage.naturalWidth) return;
   retroMap.width = 805;
@@ -29,6 +32,7 @@ function prepareMap() {
   const pixels = mapCtx.getImageData(0, 0, 805, 851),
     data = pixels.data;
   removeVisibleRoute(data, 805, 851);
+  waterPixels = new Uint8Array(805 * 851);
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i],
       g = data[i + 1],
@@ -38,7 +42,9 @@ function prepareMap() {
     data[i] = color[0];
     data[i + 1] = color[1];
     data[i + 2] = color[2];
+    if (color[0] === 56 && color[1] === 120 && color[2] === 208) waterPixels[i / 4] = 1;
   }
+  buildWaterRoute();
   mapCtx.putImageData(pixels, 0, 0);
   retroMapReady = true;
 }
@@ -52,7 +58,7 @@ function setMapOverview(value) {
 function mapViewport(w, h) {
   if (running && !mapOverview) {
     const scale = Math.min(w, h) / (1000 * routePixels / TOTAL);
-    const p = pointOnRoute(clamp(distance / TOTAL), 805 * scale, 851 * scale);
+    const p = botPointOnWater(distance / TOTAL, 805 * scale, 851 * scale);
     return {
       w: 805 * scale,
       h: 851 * scale,
@@ -102,6 +108,67 @@ function drawMapLabels(m, w, h, boatPoint) {
   }
   c.restore();
 }
+function hasWaterClearance(x, y, clearance) {
+  for (let dy = -clearance; dy <= clearance; dy++) for (let dx = -clearance; dx <= clearance; dx++) {
+    if (x + dx < 0 || x + dx >= 805 || y + dy < 0 || y + dy >= 851 || !waterPixels[(y + dy) * 805 + x + dx]) return false;
+  }
+  return true;
+}
+function nearestWaterPoint(x, y, clearance = 0) {
+  for (let radius = 0; radius <= 120; radius++) for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+    const nx = x + dx, ny = y + dy;
+    if (nx >= 0 && nx < 805 && ny >= 0 && ny < 851 && hasWaterClearance(nx, ny, clearance)) return [nx, ny];
+  }
+  return [x, y];
+}
+function waterPath(from, to, clearance = 0) {
+  const start = from[1] * 805 + from[0], end = to[1] * 805 + to[0], size = 805 * 851;
+  if (!hasWaterClearance(from[0], from[1], clearance) || !hasWaterClearance(to[0], to[1], clearance)) return null;
+  const queue = new Int32Array(size), previous = new Int32Array(size), seen = new Uint8Array(size);
+  let head = 0, tail = 0;
+  queue[tail++] = start;
+  seen[start] = 1;
+  while (head < tail) {
+    const current = queue[head++];
+    if (current === end) break;
+    const x = current % 805, y = Math.floor(current / 805);
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const nx = x + dx, ny = y + dy, next = ny * 805 + nx;
+      if (nx < 0 || nx >= 805 || ny < 0 || ny >= 851 || seen[next] || !hasWaterClearance(nx, ny, clearance)) continue;
+      if (dx && dy && (!hasWaterClearance(x + dx, y, clearance) || !hasWaterClearance(x, y + dy, clearance))) continue;
+      seen[next] = 1;
+      previous[next] = current;
+      queue[tail++] = next;
+    }
+  }
+  if (!seen[end]) return null;
+  const path = [];
+  for (let current = end;; current = previous[current]) {
+    path.push([current % 805, Math.floor(current / 805)]);
+    if (current === start) return path.reverse();
+  }
+}
+function buildWaterRoute() {
+  const anchors = route.map(([x, y]) => nearestWaterPoint(Math.round(x * 805), Math.round(y * 851), 4));
+  waterRoute = [anchors[0]];
+  for (let i = 1; i < anchors.length; i++) waterRoute.push(...(waterPath(anchors[i - 1], anchors[i], 4) || waterPath(anchors[i - 1], anchors[i]) || [anchors[i]]).slice(1));
+  waterRoutePixels = waterRoute.slice(1).reduce((sum, point, i) => sum + Math.hypot(point[0] - waterRoute[i][0], point[1] - waterRoute[i][1]), 0);
+}
+function botPointOnWater(progress, w, h) {
+  if (!waterRoutePixels) return pointOnRoute(clamp(progress), w, h);
+  let target = clamp(progress) * waterRoutePixels;
+  for (let i = 1; i < waterRoute.length; i++) {
+    const a = waterRoute[i - 1], b = waterRoute[i], length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (target <= length) {
+      const t = target / length;
+      return {x: (a[0] + (b[0] - a[0]) * t) / 805 * w, y: (a[1] + (b[1] - a[1]) * t) / 851 * h, angle: Math.atan2((b[1] - a[1]) * h, (b[0] - a[0]) * w)};
+    }
+    target -= length;
+  }
+  const p = waterRoute.at(-1);
+  return {x: p[0] / 805 * w, y: p[1] / 851 * h, angle: 0};
+}
 function draw(now) {
   const w = canvas.clientWidth,
     h = canvas.clientHeight,
@@ -112,10 +179,10 @@ function draw(now) {
   if (retroMapReady) {
     ctx.drawImage(retroMap, m.x, m.y, m.w, m.h);
     for (const bot of botRacers) {
-      const botPoint = pointOnRoute(Math.min(1, bot.distance / TOTAL), m.w, m.h);
+      const botPoint = botPointOnWater(bot.distance / TOTAL, m.w, m.h);
       botBoat(m.x + botPoint.x, m.y + botPoint.y, botPoint.angle, bot);
     }
-    const p = pointOnRoute(Math.min(1, distance / TOTAL), m.w, m.h);
+    const p = botPointOnWater(distance / TOTAL, m.w, m.h);
     boat(m.x + p.x, m.y + p.y, p.angle, now);
   } else {
     ctx.fillStyle = '#eef4ee';
@@ -125,7 +192,11 @@ function draw(now) {
   displayCtx.clearRect(0, 0, w, h);
   displayCtx.drawImage(pixelScene, 0, 0, w, h);
   if (retroMapReady) {
-    const p = pointOnRoute(Math.min(1, distance / TOTAL), m.w, m.h);
+    for (const bot of botRacers) {
+      const botPoint = botPointOnWater(bot.distance / TOTAL, m.w, m.h);
+      drawBotPortrait({x: m.x + botPoint.x, y: m.y + botPoint.y}, bot);
+    }
+    const p = botPointOnWater(distance / TOTAL, m.w, m.h);
     p.x += m.x;
     p.y += m.y;
     drawMapLabels(m, w, h, p);
