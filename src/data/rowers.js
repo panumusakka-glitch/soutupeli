@@ -180,6 +180,18 @@ const rowers = [{
   "blisterImmune": true,
   "voiceGender": "male"
 }, {
+  "name": "Juho Mikkonen",
+  "speed": 93,
+  "endurance": 93,
+  "skill": 91,
+  "cramp": 21,
+  "hands": 90,
+  "stomach": 35,
+  "power": 95,
+  "blisterImmune": false,
+  "voiceGender": "male",
+  "bestTimeMinutes": 360
+}, {
   "name": "Sauli Niinistö",
   "speed": 65,
   "endurance": 68,
