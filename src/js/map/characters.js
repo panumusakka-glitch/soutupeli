@@ -165,14 +165,13 @@ function drawBotPortrait(p, bot) {
 function drawRowerPortrait(p, now) {
   const portrait = portraits[rower.name];
   if (!portrait?.complete || !portrait.naturalWidth) return;
-  const c = displayCtx,
-    t = pressing ? clamp((now - phaseStart) / 1000) : clamp(1 - (now - phaseStart) / 1000 / TARGET_RECOVERY);
+  const c = displayCtx;
   c.save();
   c.imageSmoothingEnabled = true;
   c.imageSmoothingQuality = 'high';
   c.translate(p.x, p.y);
   c.rotate(p.angle + Math.PI / 2);
-  c.translate(0, 3 - 7 * t);
+  c.translate(0, -1);
   c.rotate(-p.angle - Math.PI / 2);
   if (portraitMask()) {
     c.beginPath();

@@ -13,6 +13,7 @@ function selectCrew() {
   if (hasBoat && selectedBoat.spruceOnly && materialSelect.value === 'mahogany') materialSelect.value = '';
   material = materialSelect.value;
   if (hasRower) updatePortrait();
+  if (hasRower) document.getElementById('routeRecord').textContent = rower.voiceGender === 'female' ? 'Naisten reittiennätys: Hanna Tuominen – 6.01.11 (2009)' : 'Reittiennätys: Ari Kankkunen – 5.04.50 (1991)';
   document.getElementById('rowerPortrait').parentElement.hidden = !hasRower;
   const labels = [['speed', 'Nopeus'], ['endurance', 'Kestävyys'], ['skill', 'Taito'], ['cramp', 'Kramppiherkkyys'], ['hands', 'Käsien kovuus'], ['stomach', 'Vatsan toiminta']];
   if (rower.power !== 99) labels.unshift(['power', 'Voima']);

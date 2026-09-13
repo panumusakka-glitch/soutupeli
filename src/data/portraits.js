@@ -6,9 +6,16 @@ const portraitCrops = {
   'Marko Lepp\u00e4m\u00e4ki': [.18, .03, .65, .65]
 };
 const portraitFiles = {
+  'Joel Naukkarinen': 'joel-naukkarinen.png',
+  'Pertti Karppinen': 'pertti-karppinen.png',
+  'Jari Saario': 'jari-saario.png',
+  'Kaisa Tiitinen': 'Kaisa-Tiitinen.png',
+  'M-L Kirvesniemi': 'Marja-Liisa-Kirvesniemi.png',
+  'Pentti Soini': 'pentti-soini.png',
   'Heikki Karjaluoto': 'heikki-karjaluoto.png',
   'Ari Kankkunen': 'ari-kankkunen.png',
   'Panu Musakka': 'panu-musakka.png',
+  'Alex Sisu': 'Alex-Sisu.png',
   'Jari Kuhno': 'jari-kuhno.png',
   'Hannu Pasanen': 'hannu-pasanen.png',
   'Joni N\u00e4rhi': 'joni-narhi.png',
@@ -22,7 +29,7 @@ const portraitFiles = {
   'Marko Lepp\u00e4m\u00e4ki': 'marko-leppamaki.png',
   'Toni Sirviö': 'toni-sirvio.png',
   'Seppo Räty': 'seppo-raty.png',
-  'Sauli Niinistö': 'sauli-niinisto.png',
+  'Sale Steel': 'Sale-Steel.png',
   'Juho Mikkonen': 'juho-mikkonen.png'
 };
 const ariPortraitMask = [[0.149, 0.288], [0.153, 0.26], [0.181, 0.227], [0.211, 0.199], [0.264, 0.16], [0.3, 0.115], [0.345, 0.076], [0.404, 0.042], [0.48, 0.025], [0.56, 0.014], [0.615, 0.019], [0.668, 0.052], [0.708, 0.09], [0.76, 0.125], [0.788, 0.169], [0.812, 0.219], [0.828, 0.264], [0.837, 0.324], [0.838, 0.382], [0.824, 0.426], [0.816, 0.449], [0.837, 0.46], [0.845, 0.49], [0.842, 0.535], [0.835, 0.58], [0.813, 0.616], [0.789, 0.644], [0.758, 0.653], [0.724, 0.648], [0.717, 0.674], [0.71, 0.716], [0.717, 0.777], [0.729, 0.824], [0.74, 0.849], [0.721, 0.879], [0.682, 0.909], [0.63, 0.941], [0.566, 0.965], [0.514, 0.981], [0.459, 0.982], [0.417, 0.974], [0.39, 0.957], [0.372, 0.934], [0.362, 0.857], [0.343, 0.85], [0.325, 0.836], [0.307, 0.816], [0.291, 0.788], [0.287, 0.767], [0.296, 0.743], [0.278, 0.709], [0.267, 0.675], [0.25, 0.638], [0.24, 0.627], [0.236, 0.61], [0.24, 0.576], [0.245, 0.522], [0.248, 0.474], [0.234, 0.455], [0.223, 0.409], [0.222, 0.386], [0.24, 0.379], [0.249, 0.338], [0.255, 0.31], [0.23, 0.323], [0.198, 0.324], [0.17, 0.315], [0.151, 0.302]];

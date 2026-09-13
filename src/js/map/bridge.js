@@ -71,26 +71,35 @@ function drawStartBridge(m, w, h, now) {
       side = i % 2 ? -1 + 2 * smoothWalk : 1,
       cx = side * deck * .26,
       bounce = running && distance < 450 ? Math.sin(now * .011 + i) * size * .35 : 0;
+    c.save();
+    c.translate(cx, cy + bounce);
+    c.rotate(side < 0 ? -Math.PI / 2 : Math.PI / 2);
     c.fillStyle = colors[i % colors.length];
-    c.fillRect(cx - size, cy - size + bounce, size * 2, size * 2);
+    c.fillRect(-size, -size, size * 2, size * 2);
     c.fillStyle = '#e8b080';
-    c.fillRect(cx - size * .65, cy - size * 1.8 + bounce, size * 1.3, size * 1.3);
+    c.fillRect(-size * .65, -size * 1.8, size * 1.3, size * 1.3);
     c.strokeStyle = '#e8b080';
     c.lineWidth = Math.max(1, size * .55);
     c.beginPath();
     const clap = running && distance < 450 ? Math.sin(now * .016 + i) > .2 ? .3 : 1.5 : 1;
-    c.moveTo(cx - size, cy);
-    c.lineTo(cx - size * 2, cy - size * clap);
-    c.moveTo(cx + size, cy);
-    c.lineTo(cx + size * 2, cy - size * clap);
+    c.moveTo(-size, 0);
+    c.lineTo(-size * 2, -size * clap);
+    c.moveTo(size, 0);
+    c.lineTo(size * 2, -size * clap);
     c.stroke();
+    c.restore();
   }
   if (raceStarterImageReady) {
-    const starterWidth = 3 * scale,
+    const sneakProgress = clamp((raceElapsed - 7) / 5),
+      smoothSneak = sneakProgress * sneakProgress * (3 - 2 * sneakProgress),
+      starterWidth = 3 * scale,
       starterHeight = starterWidth * 1.5,
-      starterX = deck * .98,
-      starterY = 12.2 * scale;
+      starterX = deck * (.98 - .83 * smoothSneak),
+      starterY = (12.2 + Math.sin(sneakProgress * Math.PI * 10) * .25) * scale;
     c.save();
+    c.beginPath();
+    c.rect(deck / 2, -halfSpan, halfSpan, halfSpan * 2);
+    c.clip();
     c.translate(starterX, starterY);
     c.rotate(-p.angle);
     c.drawImage(

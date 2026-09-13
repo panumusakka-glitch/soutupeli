@@ -38,6 +38,7 @@
         <div class="leaderboard-head"><h2 id="leaderboardTitle">TILANNE</h2><button id="leaderboardToggle" type="button" aria-expanded="false" aria-controls="leaderboard">Kaikki</button></div>
         <ol id="leaderboard"></ol>
       </aside>
+      <p id="routeRecord" class="route-record" aria-label="Reittiennätys"></p>
       <div id="startOverlay" class="overlay">
         <img class="start-logo" src="suursoutu-logo-8bit.png" alt="Tuas souvetaa Sulkavalla">
         <div id="resumePanel" class="resume-panel">
@@ -46,6 +47,7 @@
           <div id="saveMenuActions" class="save-menu-actions"><button id="continueMenuButton" type="button">Jatka soutua</button><button id="newGameMenuButton" type="button">Uusi soutu</button></div>
           <div id="saveSlotPanel" hidden><div id="saveSlots" class="save-slots"></div><button id="saveSlotBack" class="text-button" type="button">Takaisin</button></div>
         </div>
+        <p class="creator-credit">Tekijä: Panu Musakka</p>
         <div id="selectionPanel" class="selection-panel" hidden>
           <h2>Valitse soutaja ja vene</h2>
           <div class="selection-grid">
@@ -74,6 +76,8 @@
         <p class="eyebrow">PARTALANSAARI KIERRETTY</p>
         <h2 id="finishTime">00:00</h2>
         <p id="finishSummary"></p>
+        <div id="finishStats" class="finish-stats"></div>
+        <p id="finishAnalysis" class="finish-analysis"></p>
         <button id="againButton">Uusi soutu</button>
       </div>
     </section>

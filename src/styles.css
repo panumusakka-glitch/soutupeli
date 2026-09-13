@@ -14,6 +14,7 @@ h1{font-family:Georgia,serif;font-weight:500;font-size:clamp(2rem,5vw,4.2rem);li
 .lake-wrap{height:min(54vh,560px);min-height:380px;position:relative;overflow:hidden;background:var(--lake);border:1px solid var(--line);border-top:0}canvas{width:100%;height:100%;display:block;touch-action:none}.leaderboard{display:none;position:absolute;z-index:1;top:12px;left:12px;width:min(240px,58%);max-height:calc(100% - 24px);overflow-y:auto;background:rgba(16,24,48,.14);padding:7px;pointer-events:none}.race-mode .leaderboard{display:block}.leaderboard.expanded{background:rgba(16,24,48,.78)}.leaderboard-head{display:flex;align-items:center;justify-content:space-between;gap:6px}.leaderboard h2{margin:0 0 5px;color:#f8b848;font-size:12px}.leaderboard-head button{pointer-events:auto;padding:2px 5px!important;border:1px solid #f8f0c0!important;box-shadow:none!important;background:rgba(16,24,48,.65)!important;color:#f8f0c0!important;font:inherit!important;font-size:10px!important}.leaderboard ol{list-style:none;margin:0;padding:0}.leaderboard li{display:grid;grid-template-columns:24px minmax(0,1fr) 48px;gap:4px;padding:2px 0;font-size:11px;line-height:1.2}.leaderboard li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.leaderboard li small{text-align:right;color:#b8c8e0;font-size:10px}.leaderboard li.player{color:#f8d848;border-top:1px solid #485878;margin-top:3px;padding-top:4px}
 .wind{position:absolute;top:18px;right:18px;background:rgba(5,18,16,.75);padding:9px 13px;border:1px solid var(--line);backdrop-filter:blur(8px)}.wind span{display:block;color:var(--muted);font-size:.68rem}
 .overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:rgba(5,16,14,.65);backdrop-filter:blur(3px);padding:20px}.overlay.hidden{display:none}.overlay p{line-height:1.6}.overlay h2{font-size:4rem;margin:.2rem}
+#finishOverlay{justify-content:flex-start;overflow-y:auto}.finish-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:min(720px,100%);margin:4px 0 10px}.finish-stats div{display:grid;gap:3px;padding:8px;background:#101830;border:1px solid #485878}.finish-stats span{font-size:11px;color:#b8c8e0}.finish-stats b{font-size:14px;color:#f8f0c0}.finish-analysis{width:min(720px,100%);margin:4px 0 14px;color:#f8d848}
 button:not(.text-button){border:0;background:var(--accent);color:white;padding:13px 19px;font-size:1rem;font-weight:700;cursor:pointer}kbd{background:#eee;color:#111;padding:3px 8px;border-radius:3px}
 footer{display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:center;background:#0c1b18;border:1px solid var(--line);border-top:0;padding:18px}.stroke-guide{background:#07120f;padding:10px 12px}.stroke-track{height:30px;display:grid;grid-template-columns:18% 58% 24%;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.16)}.zone{display:flex;align-items:center;justify-content:center;font-size:.62rem;letter-spacing:.08em;color:rgba(238,244,238,.55);border-right:1px solid rgba(255,255,255,.12);position:relative;z-index:2}.catch-zone{background:#18332d}.power-zone{background:#2b4a38}.release-zone{background:#25653f;color:#e7ffe9}.drive-bar{position:absolute;inset:0 auto 0 0;width:0;background:linear-gradient(90deg,rgba(239,91,50,.35),rgba(255,198,95,.55),rgba(91,222,123,.55));z-index:1}.stroke-cursor{position:absolute;z-index:3;top:-2px;bottom:-2px;left:0;width:4px;background:#fff;box-shadow:0 0 12px rgba(255,255,255,.9);transform:translateX(-2px)}.stroke-guide p{margin:7px 2px 0;display:flex;justify-content:space-between;gap:12px}.stroke-guide p b{font-size:.78rem}.stroke-guide p span{font-size:.75rem;color:var(--muted)}.stroke-result{display:flex;flex-direction:column;gap:4px}.stroke-result strong{font-size:1rem;color:#eef4ee}.stroke-result span{font-size:.76rem;color:var(--muted);line-height:1.35}.stroke-result.flash strong{color:#72df8d}.note{color:var(--muted);font-size:.82rem;margin:0}
  .power-control{display:grid;gap:5px;padding:8px 10px;background:#101830}.power-control label{display:flex;justify-content:space-between;font-size:12px}.power-control output{color:#f8d848;font-weight:700}.power-control input{width:100%;accent-color:#f8b848}
@@ -30,6 +31,7 @@ footer{display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:center;ba
 #startOverlay{justify-content:flex-start;overflow:auto}#startOverlay>p{font-size:14px}#startButton{flex-shrink:0}#crewLabel{padding:8px}#boatStats{font-size:14px}
 .start-logo{display:block;flex:none;width:min(300px,70vw);height:auto;max-height:30vh;object-fit:contain;margin:0 auto 12px;image-rendering:pixelated;filter:drop-shadow(4px 4px #080f20)}
 @media(max-width:600px){.selection-grid{grid-template-columns:1fr}.stat-grid,.body-dashboard{grid-template-columns:repeat(2,minmax(0,1fr))}.body-dashboard>div:last-child{grid-column:auto}}
+@media(max-width:600px){.finish-stats{grid-template-columns:repeat(2,minmax(0,1fr))}#finishOverlay{padding:10px}.overlay h2{font-size:2.6rem}}
 
 /* Keep long presses on the rowing surface out of iOS selection/callout mode. */
 #lake,.dashboard,.body-dashboard,footer,#crewLabel,.wind{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -144,3 +146,22 @@ button:focus-visible,select:focus-visible{outline:3px solid #f8d848;outline-offs
 .resume-panel{width:min(480px,100%);flex:none;padding:20px;border:2px solid #f8d848;background:#182848;box-shadow:4px 4px #080f20;margin:0 auto 16px}.resume-panel strong{display:block;font-size:20px;color:#f8f0c0}.resume-panel p{margin:10px 0 16px;color:#b8c8e0}.resume-panel[hidden],#saveSlotPanel[hidden],#selectionPanel[hidden]{display:none}.save-menu-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.save-menu-actions button{min-width:0}.save-slots{display:grid;gap:8px;margin-bottom:12px}.save-slot{display:grid!important;grid-template-columns:72px 1fr auto;align-items:center;gap:8px;width:100%;padding:10px!important;text-align:left}.save-slot span{font-weight:400;font-size:12px;color:#d0d8e8}.save-slot em{font-style:normal;color:#f8d848}#saveSlotBack,#changeSaveSlot{min-width:0;padding:6px;margin-top:10px}#pauseOverlay{gap:12px}#saveStatus,#pauseStatus{font:14px system-ui;max-width:40em}#pauseOverlay button{min-height:44px}
 
 .rower-profile[hidden]{display:none}
+
+/* The initial menu is its own full-screen scene; gameplay chrome appears after a mode is chosen. */
+body.start-menu{overflow:hidden}
+body.start-menu .game-shell{width:100%;min-height:100vh;padding:0}
+body.start-menu header,
+body.start-menu .dashboard,
+body.start-menu .body-dashboard,
+body.start-menu .route-status,
+body.start-menu #crewLabel,
+body.start-menu footer,
+body.start-menu .provisions{display:none}
+body.start-menu .lake-wrap{height:100vh;min-height:100vh;border:1px solid var(--line)}
+body.start-menu #startOverlay{justify-content:center;overflow:hidden}
+body.start-menu .start-logo{max-height:none}
+.creator-credit{display:none}
+body.start-menu #startOverlay .creator-credit{display:block;margin:0;color:var(--muted);font-size:12px}
+.route-record{display:none;position:absolute;z-index:1;top:14px;right:16px;margin:0;color:#f8f0c0;font-size:12px;font-weight:700;text-align:right;text-shadow:2px 2px #080f20;pointer-events:none}
+.race-mode .route-record{display:block}
+@media(max-width:800px){.route-record{top:8px;right:8px;font-size:10px}}

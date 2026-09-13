@@ -1,5 +1,71 @@
 // Fictional game ratings. Higher cramp is worse; other stats help.
 const rowers = [{
+  "name": "Joel Naukkarinen",
+  "speed": 99,
+  "endurance": 98,
+  "skill": 97,
+  "cramp": 12,
+  "hands": 96,
+  "stomach": 95,
+  "power": 99,
+  "blisterImmune": false,
+  "voiceGender": "male"
+}, {
+  "name": "Pertti Karppinen",
+  "speed": 99,
+  "endurance": 97,
+  "skill": 99,
+  "cramp": 8,
+  "hands": 98,
+  "stomach": 96,
+  "power": 99,
+  "blisterImmune": false,
+  "voiceGender": "male"
+}, {
+  "name": "Jari Saario",
+  "speed": 82,
+  "endurance": 99,
+  "skill": 92,
+  "cramp": 7,
+  "hands": 99,
+  "stomach": 97,
+  "power": 94,
+  "blisterImmune": false,
+  "voiceGender": "male"
+}, {
+  "name": "Kaisa Tiitinen",
+  "speed": 94,
+  "endurance": 97,
+  "skill": 97,
+  "cramp": 13,
+  "hands": 97,
+  "stomach": 94,
+  "power": 91,
+  "blisterImmune": false,
+  "voiceGender": "female"
+}, {
+  "name": "M-L Kirvesniemi",
+  "speed": 94,
+  "endurance": 99,
+  "skill": 93,
+  "cramp": 10,
+  "hands": 95,
+  "stomach": 96,
+  "power": 91,
+  "blisterImmune": false,
+  "voiceGender": "female"
+}, {
+  "name": "Pentti Soini",
+  "speed": 92,
+  "endurance": 97,
+  "skill": 96,
+  "cramp": 11,
+  "hands": 97,
+  "stomach": 96,
+  "power": 93,
+  "blisterImmune": false,
+  "voiceGender": "male"
+}, {
   "name": "Heikki Karjaluoto",
   "speed": 98,
   "endurance": 99,
@@ -66,6 +132,17 @@ const rowers = [{
   "hands": 70,
   "stomach": 50,
   "power": 95,
+  "blisterImmune": false,
+  "voiceGender": "male"
+}, {
+  "name": "Alex Sisu",
+  "speed": 91,
+  "endurance": 96,
+  "skill": 84,
+  "cramp": 14,
+  "hands": 90,
+  "stomach": 94,
+  "power": 88,
   "blisterImmune": false,
   "voiceGender": "male"
 }, {
@@ -192,7 +269,7 @@ const rowers = [{
   "voiceGender": "male",
   "bestTimeMinutes": 360
 }, {
-  "name": "Sauli Niinistö",
+  "name": "Sale Steel",
   "speed": 65,
   "endurance": 68,
   "skill": 75,

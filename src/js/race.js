@@ -16,6 +16,7 @@ function reset() {
   quality = .5;
   strokePower = Number.isFinite(rower.racePower) ? rower.racePower : 70;
   raceDay = null;
+  raceStats = newRaceStats();
   strokePulse = feedbackTimer = 0;
 
   ({
@@ -213,6 +214,7 @@ function start() {
   rowerChatter.arm(rower.name, true);
 
   running = true;
+  document.body.classList.remove('start-menu');
   document.body.classList.add('race-mode');
 
   resize();
@@ -253,6 +255,55 @@ function pauseRace() {
     .remove('hidden');
 
   updateUI();
+}
+
+function showFinishReport(sec, place) {
+  const averageSpeed = 3.6 * TOTAL / sec,
+    activeSeconds = Math.max(1, raceStats.activeSeconds),
+    averagePower = raceStats.powerIntegral / activeSeconds,
+    averageCadence = raceStats.cadenceIntegral / activeSeconds,
+    averageQuality = raceStats.qualityIntegral / activeSeconds,
+    firstHalfTime = raceStats.halfwayAt || sec / 2,
+    secondHalfTime = Math.max(1, sec - firstHalfTime),
+    firstHalfSpeed = 3.6 * (TOTAL / 2) / firstHalfTime,
+    secondHalfSpeed = 3.6 * (TOTAL / 2) / secondHalfTime,
+    winnerTime = Math.min(sec, ...botRacers.filter(bot => bot.finishedAt !== null).map(bot => bot.finishedAt)),
+    gap = sec - winnerTime;
+  let portions = 0,
+    consumedCarbs = 0,
+    consumedFluid = 0;
+  for (const [key, food] of Object.entries(foods)) {
+    const used = food.stock - inventory[key];
+    portions += used;
+    consumedCarbs += used * food.carbs;
+    consumedFluid += used * food.fluid;
+  }
+  const observations = [];
+  if (secondHalfSpeed < firstHalfSpeed * .95) observations.push(`Vauhti hiipui toisella puoliskolla ${(firstHalfSpeed - secondHalfSpeed).toFixed(1).replace('.', ',')} km/h.`);
+  else if (secondHalfSpeed > firstHalfSpeed * 1.05) observations.push(`Säästit voimia ja soudat toisen puoliskon ${(secondHalfSpeed - firstHalfSpeed).toFixed(1).replace('.', ',')} km/h nopeammin.`);
+  else observations.push('Vauhdinjako pysyi tasaisena kilpailun molemmilla puoliskoilla.');
+  if (stamina < 15) observations.push('Annoit lähes kaikki voimasi reitille.');
+  if (energy < 25) observations.push('Energiavarastot jäivät hyvin vähäisiksi.');
+  if (hydration < 75) observations.push('Nestetasapaino heikensi loppumatkan suorituskykyä.');
+  if (cramps >= 30) observations.push('Kramppirasitus nousi merkittäväksi.');
+  if (blisters >= 30) observations.push('Käsien rakot haittasivat soutua selvästi.');
+  if (observations.length === 1 && stamina >= 35 && energy >= 35 && hydration >= 85) observations.push('Voimavarat pysyivät hyvin hallinnassa maaliin asti.');
+
+  document.getElementById('finishSummary').textContent = `${rower.name} maalissa Sulkavan soutustadionilla.`;
+  document.getElementById('finishStats').innerHTML = `
+    <div><span>Sijoitus</span><b>${place}/${rowers.length}</b></div>
+    <div><span>Ero voittajaan</span><b>${gap > .5 ? `+${formatTime(gap)}` : '—'}</b></div>
+    <div><span>Keskinopeus</span><b>${averageSpeed.toFixed(1).replace('.', ',')} km/h</b></div>
+    <div><span>Huippunopeus</span><b>${raceStats.maxSpeed.toFixed(1).replace('.', ',')} km/h</b></div>
+    <div><span>Vetotahti keskimäärin</span><b>${averageCadence.toFixed(1).replace('.', ',')} /min</b></div>
+    <div><span>Voima keskimäärin</span><b>${Math.round(averagePower)} %</b></div>
+    <div><span>Vedon laatu</span><b>${Math.round(averageQuality * 100)} %</b></div>
+    <div><span>Voimat maalissa</span><b>${Math.round(stamina)} %</b></div>
+    <div><span>Energia maalissa</span><b>${Math.round(energy)} %</b></div>
+    <div><span>Nestetasapaino</span><b>${Math.round(hydration)} %</b></div>
+    <div><span>Krampit / rakot</span><b>${Math.round(cramps)} / ${Math.round(blisters)} %</b></div>
+    <div><span>Ravinto kilpailussa</span><b>${Math.round(consumedCarbs)} g · ${consumedFluid.toFixed(1).replace('.', ',')} l · ${portions} annosta</b></div>`;
+  document.getElementById('finishAnalysis').textContent = observations.join(' ');
 }
 
 // Per-frame orchestration: physics, dialogue, finish handling and HUD.
@@ -353,8 +404,20 @@ function update(dt, now) {
       maxRowerSpeed()
     );
 
+  raceStats.maxSpeed = Math.max(raceStats.maxSpeed, speed);
+  if (active) {
+    raceStats.activeSeconds += dt;
+    raceStats.powerIntegral += strokePower * dt;
+    raceStats.cadenceIntegral += currentStrokeRate(now) * dt;
+    raceStats.qualityIntegral += quality * dt;
+  }
+
+  const previousDistance = distance;
   distance +=
     speed / 3.6 * dt;
+  if (raceStats.halfwayAt === null && previousDistance < TOTAL / 2 && distance >= TOTAL / 2) {
+    raceStats.halfwayAt = raceElapsed;
+  }
 
   rowerChatter.tick(dt, {
     time: raceSec,
@@ -405,16 +468,7 @@ function update(dt, now) {
       .textContent =
       formatTime(sec);
 
-    document
-      .getElementById('finishSummary')
-      .textContent =
-      `Maalissa Sulkavan soutustadionilla. ` +
-      `Keskivauhti ${(3.6 * TOTAL / sec)
-        .toFixed(1)
-        .replace('.', ',')} km/h. ` +
-      `Energiaa ${Math.round(energy)} %, ` +
-      `nestetasapainoa ${Math.round(hydration)} % ` +
-      `ja rakkoja ${Math.round(blisters)} %.`;
+    showFinishReport(sec, place);
 
     ui.finish.classList.remove(
       'hidden'

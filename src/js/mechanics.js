@@ -87,6 +87,17 @@ function overdriveStrain() {
   return Math.max(0, (strokePower - 100) / 10);
 }
 
+function rowingEffort(s, active = true) {
+  if (!active) return 0;
+
+  const powerEffort = .35 + .65 * clamp((strokePower - 30) / 80);
+  const cadenceEffort = clamp(currentStrokeRate() / TARGET_SPM, .35, 1.45);
+  const techniqueCost = 1 + .25 * clamp(1 - quality);
+  const resistance = 1 + Math.max(0, s.speedLoss) / 4.6;
+
+  return clamp(powerEffort * cadenceEffort * techniqueCost * resistance);
+}
+
 function maxRowerSpeed(r = rower) {
   const speedFactor = r.speed / 99;
   const powerFactor = .65 + .35 * r.power / 99;
@@ -158,7 +169,7 @@ function updateBody(dt, s, raceSec, active) {
   const hour = dt / 3600;
   const rpm = currentStrokeRate();
 
-  const effort = clamp((speed - 7.2) / 4.6);
+  const effort = rowingEffort(s, active);
   const cadenceStrain = strokeRateStrain(rpm);
   const powerLoad = active ? powerStrain() : 1;
   const overdrive = active ? overdriveStrain() : 0;

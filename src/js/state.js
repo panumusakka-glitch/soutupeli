@@ -38,3 +38,14 @@ let rower = rowers.find(r => r.name === DEFAULT_CREW.rower),
   material = DEFAULT_CREW.material;
 let botRacers = [];
 let raceDay = null;
+function newRaceStats() {
+  return {
+    maxSpeed: 0,
+    activeSeconds: 0,
+    powerIntegral: 0,
+    cadenceIntegral: 0,
+    qualityIntegral: 0,
+    halfwayAt: null
+  };
+}
+let raceStats = newRaceStats();

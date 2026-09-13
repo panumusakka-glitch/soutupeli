@@ -2,7 +2,7 @@ const personalCurses = {
   'Toni Sirviö': 'Perkele, olis pitänyt jatkaa keihäänheittoa, tämä soutu on ihan perseestä.',
   'Ari Kankkunen': 'Ei perkele tule reittiennätystä tätä tahtia!',
   'Seppo Räty': ['En perkele lähe, jos ei oo pakko', 'Saksa on paska maa', 'Perkele, keihäs olisi jo perillä.', 'Voimaa on. Huvitusta ei.'],
-  'Sauli Niinistö': ['Asiaa on harkittu. Soutamista on valitettavasti jatkettava.', 'Veneessä vallitsee yksimielisyys. Minä olen eri mieltä.', 'Airojen välinen yhteistyö vaatii vielä neuvotteluja.', 'Tässä veneessä ei näköjään oppositioon pääse.', 'Perkele. Tämän saaren kiertämisestä olisi pitänyt tehdä vaikutusarvio.', 'Tilanne on vakaa. Edistystä ei juuri tapahdu.']
+  'Sale Steel': ['Asiaa on harkittu. Soutamista on valitettavasti jatkettava.', 'Veneessä vallitsee yksimielisyys. Minä olen eri mieltä.', 'Airojen välinen yhteistyö vaatii vielä neuvotteluja.', 'Tässä veneessä ei näköjään oppositioon pääse.', 'Perkele. Tämän saaren kiertämisestä olisi pitänyt tehdä vaikutusarvio.', 'Tilanne on vakaa. Edistystä ei juuri tapahdu.']
 };
 const lines = {
   start: ['No niin. Menoksi.'],

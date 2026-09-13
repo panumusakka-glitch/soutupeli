@@ -1,5 +1,6 @@
 const SAVE_KEY = 'suursoutu-race-v1';
 const SAVE_SLOTS = [SAVE_KEY, `${SAVE_KEY}-2`, `${SAVE_KEY}-3`];
+const renamedRowers = {'Joey Power': 'Joel Naukkarinen', 'Kankku King': 'Ari Kankkunen', 'Heikki Fjord': 'Heikki Karjaluoto', 'Sauli Niinistö': 'Sale Steel'};
 let activeSaveSlot = 1,
   pausedSaveSlot = null;
 const stateRanges = {
@@ -30,6 +31,10 @@ function validRace(s) {
 function loadRace(slot = activeSaveSlot) {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_SLOTS[slot - 1]));
+    if (s?.rower && renamedRowers[s.rower]) s.rower = renamedRowers[s.rower];
+    if (Array.isArray(s?.bots)) s.bots.forEach(bot => {
+      if (renamedRowers[bot.rower]) bot.rower = renamedRowers[bot.rower];
+    });
     return validRace(s) ? s : null;
   } catch {
     return null;
@@ -47,6 +52,7 @@ function snapshot() {
     quality,
     strokePower,
     raceDay,
+    raceStats: {...raceStats},
     carbs,
     gutCarbs,
     fluidBalance,
@@ -105,6 +111,7 @@ function savedRaces() {
 }
 function showSavedRace() {
   const saves = savedRaces();
+  document.body.classList.add('start-menu');
   document.getElementById('resumePanel').hidden = false;
   document.getElementById('selectionPanel').hidden = true;
   document.getElementById('startInstructions').hidden = true;
@@ -140,6 +147,7 @@ function chooseSaveSlot(mode, slot) {
   }
   pausedSave = null;
   pausedSaveSlot = null;
+  document.body.classList.remove('start-menu');
   document.getElementById('resumePanel').hidden = true;
   document.getElementById('selectionPanel').hidden = false;
   document.getElementById('startInstructions').hidden = false;
@@ -166,6 +174,11 @@ function resumeRace(slot = activeSaveSlot) {
     ? rower.racePower
     : Number.isFinite(s.strokePower) ? clamp(s.strokePower, 30, 110) : 70;
   raceDay = validRaceDay(s.raceDay) ? s.raceDay : randomRaceDay(rower);
+  raceStats = s.raceStats &&
+    ['maxSpeed', 'activeSeconds', 'powerIntegral', 'cadenceIntegral', 'qualityIntegral'].every(key => Number.isFinite(s.raceStats[key])) &&
+    (s.raceStats.halfwayAt === null || Number.isFinite(s.raceStats.halfwayAt))
+      ? {...s.raceStats}
+      : newRaceStats();
   carbs = s.carbs;
   gutCarbs = s.gutCarbs;
   fluidBalance = s.fluidBalance;
@@ -197,6 +210,7 @@ function resumeRace(slot = activeSaveSlot) {
   }
   rowerChatter.restore(s.chatter, rower.name, raceElapsed);
   running = true;
+  document.body.classList.remove('start-menu');
   last = performance.now();
   phaseStart = last - TARGET_RECOVERY * 1000;
   rowerSelect.disabled = boatSelect.disabled = materialSelect.disabled = true;
