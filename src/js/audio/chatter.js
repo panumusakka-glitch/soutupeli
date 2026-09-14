@@ -7,6 +7,7 @@ const rowerChatter = (() => {
     bandSince = 0,
     lastBand = null,
     windTime = 0,
+    stomachBand = null,
     lastLine = '',
     armed = false;
   const saidAt = new Map();
@@ -21,6 +22,7 @@ const rowerChatter = (() => {
     hydration: 100,
     blisters: 0,
     gutStress: 0,
+    digestionLoad: 0,
     gutFluid: 0,
     cramps: 0
   };
@@ -56,7 +58,8 @@ const rowerChatter = (() => {
       pool = [...lines.swear];
     if (s.freshness < 55) pool.push(...complaints.tired);
     if (s.energy < 45) pool.push(...complaints.energy);
-    if (s.gutStress > 15 || s.gutFluid > .65) pool.push(...complaints.stomach);
+    if (s.gutStress > 15 || s.gutFluid > .65 || s.digestionLoad > 15) pool.push(...complaints.stomach);
+    if (s.gutStress >= 55 || s.digestionLoad >= 55) pool.push(...complaints.stomachSevere);
     if (s.blisters >= 5) pool.push(...complaints.blisters);else if (s.time > 1200 && !rowers.find(r => r.name === selectedRower)?.blisterImmune) pool.push(...complaints.blisterWorry);
     if (s.cramps >= 10) pool.push(...complaints.cramps);
     if (s.wind) pool.push(...complaints.wind);
@@ -78,6 +81,7 @@ const rowerChatter = (() => {
     bandSince = 0;
     lastBand = null;
     windTime = 0;
+    stomachBand = null;
     lastLine = '';
     saidAt.clear();
     armed = false;
@@ -95,6 +99,7 @@ const rowerChatter = (() => {
       hydration: 100,
       blisters: 0,
       gutStress: 0,
+      digestionLoad: 0,
       gutFluid: 0,
       cramps: 0
     };
@@ -128,7 +133,7 @@ const rowerChatter = (() => {
     if (manual) cancel();
     const isCurse = ['swear', 'bad', 'wind', 'slow'].includes(key),
       personal = isCurse ? personalCurses[selectedRower] : null;
-    const base = key === 'swear' ? contextualCurses() : key === 'wind' ? complaints.wind : lines[key];
+    const base = key === 'swear' ? contextualCurses() : key === 'wind' ? complaints.wind : complaints[key] || lines[key];
     const personalLines = personal ? Array.isArray(personal) ? personal : [personal] : [];
     const pool = [...base, ...personalLines];
     const fresh = pool.filter(line => !recentLines.includes(line));
@@ -159,6 +164,9 @@ const rowerChatter = (() => {
   function badStroke(quality, time) {
     if (quality < .22 && time > 20 && Math.random() < (time < 300 ? .25 : .12)) say('bad', time);
   }
+  function intake(key, time) {
+    if (key === 'cigarette' && Math.random() < .45) say('smoke', time);
+  }
   function tick(dt, state) {
     condition = {
       ...condition,
@@ -178,6 +186,12 @@ const rowerChatter = (() => {
     if (!active || time < 60 || smoothedSpeed < 2) {
       band = null;
       bandSince = time;
+      return;
+    }
+    const stomachLoad = Math.max(condition.gutStress, condition.digestionLoad);
+    const currentStomachBand = stomachLoad >= 55 ? 'stomachSevere' : stomachLoad >= 18 ? 'stomachEarly' : null;
+    if (currentStomachBand && currentStomachBand !== stomachBand && say(currentStomachBand, time)) {
+      stomachBand = currentStomachBand;
       return;
     }
     const hours = totalKm / smoothedSpeed;
@@ -240,6 +254,7 @@ const rowerChatter = (() => {
     announceFinish,
     cancel,
     badStroke,
+    intake,
     tick,
     snapshot,
     restore

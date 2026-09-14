@@ -8,7 +8,7 @@ const legacyRoot = path.resolve(__dirname, '../dist');
 const root = fs.existsSync(path.join(sourceRoot, 'index.html'))
   ? sourceRoot
   : legacyRoot;
-function createGame(directory = root, legacy = false) {
+function createGame(directory = root, legacy = false, location = {hostname:'example.test',search:''}) {
   const html = fs.readFileSync(path.join(directory, 'index.html'), 'utf8');
   const nodes = {}, storage = new Map(), spoken = [], listeners = {};
   const noop = () => {};
@@ -30,7 +30,7 @@ function createGame(directory = root, legacy = false) {
     speechSynthesis:{getVoices:()=>[{name:'Harri',lang:'fi-FI'},{name:'Satu',lang:'fi-FI'}],speak:u=>spoken.push(u),cancel:noop},
     SpeechSynthesisUtterance:function(text){this.text=text},
     rowingAudio:{stop:noop,stopCrowd:noop,cheerStart:noop,unlock:noop,startMenuMusic:noop,stopMenuMusic:noop,starterShot:noop,catchOar:noop,release:noop,isEnabled:()=>true},Image:function(){},Option:function(){},
-    performance:{now:()=>1000},devicePixelRatio:2,addEventListener:(k,f)=>listeners[k]=f,requestAnimationFrame:noop,navigator:{},confirm:()=>true};
+    performance:{now:()=>1000},devicePixelRatio:2,addEventListener:(k,f)=>listeners[k]=f,requestAnimationFrame:noop,navigator:{},location,confirm:()=>true};
   vm.createContext(box);
   const scripts=legacy?['chatter.js','game.js']:[...html.matchAll(/<script src="([^"]+)"/g)].map(m=>m[1]);
   for(const src of scripts){const source=fs.readFileSync(path.join(directory,src),'utf8');new vm.Script(source,{filename:src});if(src.endsWith('effects.js'))continue;vm.runInContext(source,box,{filename:src});}

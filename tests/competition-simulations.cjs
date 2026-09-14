@@ -14,6 +14,8 @@ for (let race = 1; race <= RACES; race++) {
     rower=rowers.find(r=>r.name==='Ari Kankkunen');
     selectedBoat=boats.find(b=>b.name==='Lonka');
     material='mahogany';
+    selectedProvisionPack='athlete';
+    provisionPackSelect.value='athlete';
     reset();
     prepareRaceDay();
     running=true;

@@ -19,7 +19,8 @@ game.run(`
   hydration = 74;
   cramps = 31;
   blisters = 32;
-  inventory = initialInventory();
+  selectedProvisionPack = 'athlete';
+  inventory = initialInventory(selectedProvisionPack);
   inventory.water--;
   botRacers[0].finishedAt = 17900;
   showFinishReport(18000, 2);

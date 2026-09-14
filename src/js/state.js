@@ -5,6 +5,8 @@ let raceElapsed = 0,
 let running = false,
   pressing = false,
   previewMode = false,
+  previewPaused = false,
+  previewPausedAt = 0,
   previewLastStroke = 0,
   previewPlaybackRate = 180,
   ferryProgress = 0,
@@ -33,6 +35,9 @@ let {
   sodiumBalance,
   gutSodium,
   gutStress,
+  digestionLoad,
+  alcoholLoad,
+  nicotineLoad,
   wPrime,
   freshness,
   techniqueControl,
@@ -43,7 +48,8 @@ let {
 } = INITIAL_BODY;
 let activeInput = null,
   activeSurface = null;
-let inventory = initialInventory();
+let selectedProvisionPack = '',
+  inventory = initialInventory(selectedProvisionPack);
 let rower = rowers.find(r => r.name === DEFAULT_CREW.rower),
   selectedBoat = boats.find(b => b.name === DEFAULT_CREW.boat),
   material = DEFAULT_CREW.material;

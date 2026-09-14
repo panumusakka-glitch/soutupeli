@@ -103,11 +103,14 @@ function criticalStrokePower(r = rower, currentFreshness = freshness) {
 
 function effectiveStrokePower() {
   const critical = criticalStrokePower();
-  if (strokePower <= critical) return strokePower;
+  const nicotineFactor = 1 - Math.min(.22, .025 * Math.pow(nicotineLoad, 1.25));
+  const digestionFactor = 1 - Math.min(.12, .0012 * Math.pow(digestionLoad, 1.08));
+  const substanceFactor = nicotineFactor * digestionFactor;
+  if (strokePower <= critical) return strokePower * substanceFactor;
   // A drained W′ reserve also leaves short-term fatigue, so an all-out
   // request cannot turn into an indefinitely sustainable critical effort.
   const depletedLimit = critical * (.86 + .08 * freshness / 100);
-  return depletedLimit + (strokePower - depletedLimit) * clamp(wPrime / 30);
+  return (depletedLimit + (strokePower - depletedLimit) * clamp(wPrime / 30)) * substanceFactor;
 }
 
 function updateWPrime(dt, active) {
@@ -120,7 +123,8 @@ function updateWPrime(dt, active) {
     wPrime = clamp(wPrime - requestedExcess * dt / 90, 0, 100);
   } else {
     // Easy rowing restores only part of the reserve, and does so gradually.
-    wPrime = clamp(wPrime + (critical - strokePower) * dt / 160, 0, 100);
+    const alcoholRecovery = 1 / (1 + .22 * Math.pow(alcoholLoad, 1.35));
+    wPrime = clamp(wPrime + (critical - strokePower) * dt / 160 * alcoholRecovery, 0, 100);
   }
 }
 
@@ -141,15 +145,19 @@ function updateTechniqueControl(dt, s, effort, active) {
     .35 * (1 - wPrime / 100) +
     .55 * Math.max(0, effectiveStrokePower() - criticalStrokePower()) / 15 +
     .25 * strokeRateStrain(currentStrokeRate()) +
+    .16 * Math.pow(alcoholLoad, 1.2) +
+    .08 * Math.pow(nicotineLoad, 1.15) +
+    .004 * Math.pow(digestionLoad, 1.15) +
     (s.wind ? .22 * (s.windLoad ?? 1) : 0);
   const skillProtection = .55 + .45 * rower.skill / 99;
   const deterioration = fatigueLoad * (.04 + .10 * effort) / skillProtection;
   const recovery = effort < .48 && fatigueLoad < .45
     ? .09 * (.6 + .4 * rower.skill / 99)
     : .012;
+  const substanceRecovery = recovery / (1 + .3 * alcoholLoad + .12 * nicotineLoad);
 
   techniqueControl = clamp(
-    techniqueControl + (recovery - deterioration) * dt / 3600,
+    techniqueControl + (substanceRecovery - deterioration) * dt / 3600,
     .35,
     1
   );
@@ -261,6 +269,8 @@ function updateCramps(dt, effort, active = true, s = null) {
 
 function updateBody(dt, s, raceSec, active) {
   const hour = dt / 3600;
+  const alcoholAtStart = alcoholLoad;
+  const nicotineAtStart = nicotineLoad;
   const rpm = currentStrokeRate();
 
   const effort = rowingEffort(s, active);
@@ -290,7 +300,7 @@ function updateBody(dt, s, raceSec, active) {
 
   const carbAbsorb = Math.min(
     gutCarbs,
-    (55 + 35 * rower.stomach / 99) * hour,
+    (55 + 35 * rower.stomach / 99) * hour / (1 + gutStress / 120 + digestionLoad / 80),
     Math.max(0, 45 - bloodCarbs)
   );
 
@@ -301,8 +311,9 @@ function updateBody(dt, s, raceSec, active) {
   const bloodBurn = Math.min(bloodCarbs, carbBurn * .35);
   bloodCarbs -= bloodBurn;
 
+  const substanceBurn = active ? 8 * Math.pow(nicotineAtStart, 1.3) * hour : 0;
   carbs = clamp(
-    carbs - (carbBurn - bloodBurn),
+    carbs - (carbBurn + substanceBurn - bloodBurn),
     0,
     420
   );
@@ -312,7 +323,7 @@ function updateBody(dt, s, raceSec, active) {
       gutFluid,
       (.8 + .3 * rower.stomach / 99) * hour
     ) /
-    (1 + gutStress / 100);
+    (1 + gutStress / 100 + digestionLoad / 75);
 
   gutFluid -= fluidAbsorb;
 
@@ -340,7 +351,7 @@ function updateBody(dt, s, raceSec, active) {
     hour
     : 0;
 
-  fluidBalance += fluidAbsorb - sweat;
+  fluidBalance += fluidAbsorb - sweat - .045 * Math.pow(alcoholAtStart, 1.35) * hour;
   sodiumBalance -= sweat * 780;
 
   const excessCarbs = Math.max(
@@ -351,7 +362,7 @@ function updateBody(dt, s, raceSec, active) {
   gutStress = clamp(
     gutStress +
       excessCarbs / 70 * 5 * hour -
-      Math.min(gutStress, 7 * hour),
+      Math.min(gutStress, 7 * hour / (1 + digestionLoad / 50)),
     0,
     100
   );
@@ -375,6 +386,10 @@ function updateBody(dt, s, raceSec, active) {
   hydration = 100 * clamp(
     fluidScore * saltScore
   );
+
+  alcoholLoad = Math.max(0, alcoholLoad - .18 * hour);
+  nicotineLoad = Math.max(0, nicotineLoad - 1.25 * hour);
+  digestionLoad = Math.max(0, digestionLoad - 3 * hour);
 
   /*
    * Normaali fyysinen rasitus +

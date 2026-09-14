@@ -38,10 +38,6 @@
     <section class="lake-wrap">
       <canvas id="lake" aria-label="Ylhäältä kuvattu soutupeli"></canvas>
 
-      <section id="previewControls" class="preview-controls" aria-label="Esikatselun ohjaimet" hidden>
-        <label>AIKA<input id="previewTimeline" type="range" min="0" max="1000" value="0" step="1" aria-label="Esikatselun aikajana"></label>
-        <label>NOPEUS<select id="previewSpeed" aria-label="Esikatselun nopeus"><option value="0.25">0,25×</option><option value="1">1×</option><option value="4">4×</option><option value="30">30×</option><option value="180" selected>180×</option></select></label>
-      </section>
       <aside class="leaderboard" aria-label="Kilpailutilanne">
         <div class="leaderboard-head"><h2 id="leaderboardTitle">TILANNE</h2><button id="leaderboardToggle" type="button" aria-expanded="false" aria-controls="leaderboard">Kaikki</button></div>
         <ol id="leaderboard"></ol>
@@ -53,6 +49,7 @@
           <strong id="saveMenuTitle">Valitse pelitapa</strong>
           <p id="resumeSummary">Jatka aiempaa soutua tai aloita uusi.</p>
           <div id="saveMenuActions" class="save-menu-actions"><button id="continueMenuButton" type="button">Jatka soutua</button><button id="newGameMenuButton" type="button">Uusi soutu</button></div>
+          <button id="previewButton" class="text-button preview-button" type="button" hidden>Esikatsele kilpailu · 180×</button>
           <div id="saveSlotPanel" hidden><div id="saveSlots" class="save-slots"></div><button id="saveSlotBack" class="text-button" type="button">Takaisin</button></div>
         </div>
         <p class="creator-credit">Tekijä: Panu Musakka</p>
@@ -72,6 +69,10 @@
               <label>Materiaali<select id="materialSelect"></select></label>
               <p id="materialStats"></p>
             </section>
+            <section class="selection-group provision-pack-group">
+              <label>Eväspaketti<select id="provisionPackSelect"></select></label>
+              <p id="provisionPackStats">Valitse soutuun mukaan otettavat eväät.</p>
+            </section>
           </div>
           <small>Arvot ja veneiden erot ovat pelihahmojen kuvitteellisia ominaisuuksia. Kramppiherkkyydessä pienempi on parempi. Hahmojen repliikit ovat pelin huumoria.</small>
           <button id="changeSaveSlot" class="text-button" type="button">Vaihda tallennuspaikkaa</button>
@@ -88,6 +89,12 @@
         <p id="finishAnalysis" class="finish-analysis"></p>
         <button id="againButton">Uusi soutu</button>
       </div>
+    </section>
+
+    <section id="previewControls" class="preview-controls" aria-label="Esikatselun ohjaimet" hidden>
+      <label>AIKA<input id="previewTimeline" type="range" min="0" max="1000" value="0" step="1" aria-label="Esikatselun aikajana"></label>
+      <label>NOPEUS<select id="previewSpeed" aria-label="Esikatselun nopeus"><option value="0.25">0,25×</option><option value="1">1×</option><option value="4">4×</option><option value="30">30×</option><option value="180" selected>180×</option></select></label>
+      <button id="previewPause" type="button" aria-pressed="false">Pysäytä</button>
     </section>
 
     <div class="route-status"><span id="saveWarning" role="status" hidden></span><span id="routeSection">TYYNI REITTIOSUUS</span><button id="mapToggle" type="button" aria-pressed="false" aria-controls="lake">Kartta</button><span class="route-wind">Tuuli ↙ 1,8 m/s</span></div>
@@ -128,6 +135,7 @@
   <script src="js/input.js"></script>
   <script src="js/map/route.js"></script>
   <script src="js/map/render.js"></script>
+  <script src="js/map/route-editor.js"></script>
   <script src="js/map/characters.js"></script>
   <script src="js/map/bridge.js"></script>
   <script src="js/storage.js"></script>

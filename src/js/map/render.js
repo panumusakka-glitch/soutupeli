@@ -522,6 +522,7 @@ function draw(now) {
   }
   displayCtx.clearRect(0, 0, w, h);
   displayCtx.drawImage(pixelScene, 0, 0, w, h);
+  if (typeof drawRouteEditorOverlay === 'function') drawRouteEditorOverlay(m, w, h);
   if (retroMapReady && running) {
     for (const [index, bot] of botRacers.entries()) {
       const botPoint = formationPoint(bot.distance, index + 1, botRacers.length + 1, bot.lane, m);

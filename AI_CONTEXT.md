@@ -28,6 +28,14 @@ Tavallinen HTML/CSS/JavaScript + Canvas; ei npm-riippuvuuksia eikä build-vaihet
 | Tallennusmuoto, validointi ja palautus | `dist/js/storage.js` |
 | Aloitus, tauko, maali ja päivityksen ohjaus | `dist/js/race.js` |
 
+## Karttaliikenteen yläsäännöt
+
+- Soutajat liikkuvat vain sinisellä vesialueella. Soutaja ei saa soutaa vihreällä maa-alueella eikä lossin päällä.
+- Lossin ja soutajan kohdatessa jommankumman täytyy odottaa tai väistää; ne eivät saa kulkea toistensa läpi tai olla päällekkäin.
+- Soutajien tavoitereitti kulkee pehmeästi ja mahdollisimman suoraan Hakovirralta Soutustadionin edustalla olevalle maalille.
+- Reittivalinnoissa saa olla luontevaa variaatiota, mutta soutajat eivät saa tehdä tarpeettomia kiertoteitä tai käydä lahden pohjukoissa ilman reitin vaatimaa syytä.
+- Kiertotie tehdään vain törmäyksen välttämiseksi tai todellisen kulkuesteen takia. Ahtaissa salmissa soutajat saavat kulkea tavallista tiiviimmin, jotta väistäminen ei aiheuta epärealistisia mutkia.
+
 ## Yhteiset pelisäännöt
 
 - `dist/js/state.js` sisältää yhteisen muuttuvan pelitilan. Alkuarvot ovat configissa; eväsvarasto muodostetaan foods-datasta. Älä kopioi dataa UI:hin.

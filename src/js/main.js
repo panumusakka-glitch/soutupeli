@@ -1,14 +1,19 @@
 // Wire inputs only after every system and data file has loaded.
+const developerMode = ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) &&
+  /(?:^|[?&])dev=1(?:&|$)/.test(globalThis.location?.search || '');
 document.getElementById('totalDistance').textContent=(TOTAL/1000).toLocaleString('fi-FI');
 renderProvisions();
 materialSelect.add(new Option('Valitse materiaali…', ''));
 Object.entries(materials).forEach(([id, m]) => materialSelect.add(new Option(`${m.name} · noin ${m.weight} kg`, id)));
+provisionPackSelect.add(new Option('Valitse eväspaketti…', ''));
+Object.entries(provisionPacks).filter(([id]) => id !== 'legacy').forEach(([id, pack]) => provisionPackSelect.add(new Option(pack.name, id)));
+provisionPackSelect.value = 'athlete';
 rowerSelect.add(new Option('Valitse soutaja…', ''));
 boatSelect.add(new Option('Valitse vene…', ''));
 rowers.forEach((r, i) => rowerSelect.add(new Option(r.name, i)));
 boats.forEach((b, i) => boatSelect.add(new Option(b.name, i)));
 selectDefaultCrew();
-rowerSelect.onchange = boatSelect.onchange = materialSelect.onchange = selectCrew;
+rowerSelect.onchange = boatSelect.onchange = materialSelect.onchange = provisionPackSelect.onchange = selectCrew;
 document.getElementById('power').addEventListener('input', e => {
   strokePower = Number.isFinite(rower.racePower)
     ? rower.racePower
@@ -48,12 +53,16 @@ document.addEventListener('visibilitychange', () => {
 });
 ['contextmenu', 'selectstart', 'dragstart'].forEach(type => canvas.addEventListener(type, e => e.preventDefault()));
 document.getElementById('startButton').onclick = start;
+const previewButton = document.getElementById('previewButton');
+previewButton.hidden = !developerMode;
+if (developerMode) previewButton.onclick = startPreview;
 document.getElementById('previewTimeline').addEventListener('input', event => {
   seekPreview(Number(event.target.value) / 1000);
 });
 document.getElementById('previewSpeed').addEventListener('change', event => {
-  previewPlaybackRate = Number(event.target.value);
+  if (!previewPaused) previewPlaybackRate = Number(event.target.value);
 });
+document.getElementById('previewPause').onclick = () => setPreviewPaused(!previewPaused);
 document.getElementById('startOverlay').addEventListener('pointerdown', () => rowingAudio.startMenuMusic(), {once: true});
 addEventListener('keydown', () => rowingAudio.startMenuMusic(), {once: true});
 document.getElementById('againButton').onclick = () => {
@@ -94,7 +103,7 @@ addEventListener('pagehide', pauseRace);
 function loop(now) {
   const realDt = Math.max(0, Math.min(.04, (now - last) / 1000));
   last = now;
-  if (previewMode && now - previewLastStroke >= TARGET_CYCLE * 1000) {
+  if (previewMode && !previewPaused && now - previewLastStroke >= TARGET_CYCLE * 1000) {
     previewLastStroke = now;
     strokeTimes.push(now);
     strokeTimes = strokeTimes.filter(time => now - time < 15000);
@@ -105,7 +114,7 @@ function loop(now) {
   if (document.hidden) pauseRace();
   update(dt, now);
   if (running && !previewMode && now - lastSaveAt >= 5000) saveRace();
-  draw(now);
+  draw(previewMode && previewPaused ? previewPausedAt : now);
 }
 selectCrew();
 requestAnimationFrame(loop);

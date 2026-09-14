@@ -50,6 +50,9 @@ const stateRanges = {
   sodiumBalance: [-1e6, 1e6],
   gutSodium: [0, 1e5],
   gutStress: [0, 100],
+  digestionLoad: [0, 100],
+  alcoholLoad: [0, 20],
+  nicotineLoad: [0, 20],
   wPrime: [0, 100],
   freshness: [0, 100],
   techniqueControl: [0, 1],
@@ -67,15 +70,21 @@ function migrateRaceDay(day) {
 }
 function validRace(s) {
   if (!s || s.version !== 1 || !rowers.some(r => r.name === s.rower) || !boats.some(b => b.name === s.boat) || !Object.hasOwn(materials, s.material)) return false;
+  if (!Object.hasOwn(provisionPacks, s.provisionPack)) return false;
   if (boats.find(b => b.name === s.boat).spruceOnly && s.material !== 'spruce') return false;
   if (!Object.entries(stateRanges).every(([k, [lo, hi]]) => Number.isFinite(s[k]) && s[k] >= lo && s[k] <= hi)) return false;
-  const max = initialInventory();
+  const max = initialInventory(s.provisionPack);
   return s.inventory && Object.entries(max).every(([k, n]) => Number.isInteger(s.inventory[k]) && s.inventory[k] >= 0 && s.inventory[k] <= n);
 }
 function loadRace(slot = activeSaveSlot) {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_SLOTS[slot - 1]));
+    if (s && !Object.hasOwn(s, 'provisionPack')) s.provisionPack = 'legacy';
+    if (s?.inventory) for (const key of Object.keys(foods)) if (!Number.isInteger(s.inventory[key])) s.inventory[key] = 0;
     if (s && !Number.isFinite(s.bloodCarbs)) s.bloodCarbs = 20;
+    if (s && !Number.isFinite(s.alcoholLoad)) s.alcoholLoad = 0;
+    if (s && !Number.isFinite(s.digestionLoad)) s.digestionLoad = 0;
+    if (s && !Number.isFinite(s.nicotineLoad)) s.nicotineLoad = 0;
     if (s && !Number.isFinite(s.techniqueControl)) s.techniqueControl = 1;
     if (s && !Number.isFinite(s.wPrime)) s.wPrime = Number.isFinite(s.stamina) ? s.stamina : 100;
     if (s && !Number.isFinite(s.freshness)) s.freshness = 100;
@@ -104,6 +113,7 @@ function snapshot() {
     rower: rower.name,
     boat: selectedBoat.name,
     material,
+    provisionPack: selectedProvisionPack,
     elapsed: raceElapsed,
     distance,
     speed,
@@ -119,6 +129,9 @@ function snapshot() {
     sodiumBalance,
     gutSodium,
     gutStress,
+    digestionLoad,
+    alcoholLoad,
+    nicotineLoad,
     wPrime,
     freshness,
     techniqueControl,
@@ -192,6 +205,7 @@ function showSavedRace() {
   document.getElementById('saveStatus').hidden = true;
   document.getElementById('startButton').hidden = true;
   document.getElementById('saveMenuActions').hidden = false;
+  document.getElementById('previewButton').hidden = !developerMode;
   document.getElementById('saveSlotPanel').hidden = true;
   document.getElementById('saveMenuTitle').textContent = 'Valitse pelitapa';
   document.getElementById('resumeSummary').textContent = 'Jatka aiempaa soutua tai aloita uusi.';
@@ -200,6 +214,7 @@ function showSavedRace() {
 function showSaveSlots(mode) {
   const saves = savedRaces();
   document.getElementById('saveMenuActions').hidden = true;
+  document.getElementById('previewButton').hidden = true;
   document.getElementById('saveSlotPanel').hidden = false;
   document.getElementById('saveMenuTitle').textContent = mode === 'continue' ? 'Valitse jatkettava soutu' : 'Valitse tallennuspaikka';
   document.getElementById('resumeSummary').textContent = mode === 'continue' ? 'Valitse tallennus, jota haluat jatkaa.' : 'Uusi soutu tallennetaan valitsemaasi paikkaan.';
@@ -221,6 +236,8 @@ function chooseSaveSlot(mode, slot) {
   }
   pausedSave = null;
   pausedSaveSlot = null;
+  provisionPackSelect.value = 'athlete';
+  selectCrew();
   document.getElementById('resumePanel').hidden = true;
   document.getElementById('selectionPanel').hidden = false;
   document.getElementById('startInstructions').hidden = false;
@@ -238,6 +255,7 @@ function resumeRace(slot = activeSaveSlot) {
   rowerSelect.value = String(rowers.findIndex(r => r.name === s.rower));
   boatSelect.value = String(boats.findIndex(b => b.name === s.boat));
   materialSelect.value = s.material;
+  provisionPackSelect.value = s.provisionPack;
   selectCrew();
   raceElapsed = s.elapsed;
   distance = s.distance;
@@ -260,6 +278,9 @@ function resumeRace(slot = activeSaveSlot) {
   sodiumBalance = s.sodiumBalance;
   gutSodium = s.gutSodium;
   gutStress = s.gutStress;
+  digestionLoad = s.digestionLoad;
+  alcoholLoad = s.alcoholLoad;
+  nicotineLoad = s.nicotineLoad;
   wPrime = s.wPrime;
   freshness = s.freshness;
   techniqueControl = s.techniqueControl;
@@ -303,7 +324,7 @@ function resumeRace(slot = activeSaveSlot) {
   rowingAudio.stopMenuMusic();
   last = performance.now();
   phaseStart = last - TARGET_RECOVERY * 1000;
-  rowerSelect.disabled = boatSelect.disabled = materialSelect.disabled = true;
+  rowerSelect.disabled = boatSelect.disabled = materialSelect.disabled = provisionPackSelect.disabled = true;
   document.body.classList.add('race-mode');
   ui.start.classList.add('hidden');
   resize();

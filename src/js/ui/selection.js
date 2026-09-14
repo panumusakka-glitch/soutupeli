@@ -1,6 +1,7 @@
 const rowerSelect = document.getElementById('rowerSelect'),
   boatSelect = document.getElementById('boatSelect'),
-  materialSelect = document.getElementById('materialSelect');
+  materialSelect = document.getElementById('materialSelect'),
+  provisionPackSelect = document.getElementById('provisionPackSelect');
 function selectCrew() {
   if (running) return;
   const hasRower = rowerSelect.value !== '';
@@ -12,6 +13,7 @@ function selectCrew() {
   materialSelect.querySelector('[value=mahogany]').disabled = hasBoat && !!selectedBoat.spruceOnly;
   if (hasBoat && selectedBoat.spruceOnly && materialSelect.value === 'mahogany') materialSelect.value = '';
   material = materialSelect.value;
+  selectedProvisionPack = provisionPackSelect.value;
   if (hasRower) updatePortrait();
   if (hasRower) document.getElementById('routeRecord').textContent = routeRecordLabel(rower.voiceGender);
   document.getElementById('rowerPortrait').parentElement.hidden = !hasRower;
@@ -20,8 +22,11 @@ function selectCrew() {
   document.getElementById('rowerStats').innerHTML = hasRower ? labels.map(([key, label]) => `<div class="stat ${key === 'cramp' ? 'bad' : ''}">${label}<b>${rower[key]} / 99</b>${key === 'hands' && rower.blisterImmune ? '<small>Ei rakkoja</small>' : ''}</div>`).join('') : '';
   document.getElementById('boatStats').innerHTML = hasBoat ? [['Runkonopeus', selectedBoat.hull], ['Vastatuuli', selectedBoat.headwind], ['Vakaus', selectedBoat.stability]].map(([label, value]) => `<div class="stat">${label}<b>${value} / 5</b></div>`).join('') : '';
   document.getElementById('materialStats').textContent = material ? `Paino noin ${boatWeight()} kg. ${selectedBoat.spruceOnly ? 'Saatavana vain kuusivanerisena. ' : ''}${materials[material].name}: ${materials[material].description}${isGoldenBoat() ? ' Kultainen erikoisvene.' : ''}` : '';
-  document.getElementById('startButton').disabled = !(hasRower && hasBoat && material);
-  document.getElementById('crewLabel').textContent = hasRower && hasBoat && material ? `${rower.name} · ${selectedBoat.name} · ${materials[material].name}` : '';
+  document.getElementById('provisionPackStats').textContent = selectedProvisionPack
+    ? provisionPacks[selectedProvisionPack].description
+    : 'Valitse soutuun mukaan otettavat eväät.';
+  document.getElementById('startButton').disabled = !(hasRower && hasBoat && material && selectedProvisionPack);
+  document.getElementById('crewLabel').textContent = hasRower && hasBoat && material && selectedProvisionPack ? `${rower.name} · ${selectedBoat.name} · ${materials[material].name} · ${provisionPacks[selectedProvisionPack].name}` : '';
   if (!running && hasRower && hasBoat && material && typeof resetBotRacers === 'function') resetBotRacers();
 }
 function updatePortrait() {

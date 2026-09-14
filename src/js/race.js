@@ -9,6 +9,8 @@ function reset() {
   cancelStroke();
   running = false;
   previewMode = false;
+  previewPaused = false;
+  previewPausedAt = 0;
   previewPlaybackRate = 180;
   document.getElementById('previewControls').hidden = true;
   document.body.classList.remove('preview-mode');
@@ -38,6 +40,9 @@ function reset() {
     sodiumBalance,
     gutSodium,
     gutStress,
+    digestionLoad,
+    alcoholLoad,
+    nicotineLoad,
     wPrime,
     freshness,
     techniqueControl,
@@ -50,10 +55,11 @@ function reset() {
   rowerSelect.disabled =
     boatSelect.disabled =
     materialSelect.disabled =
+    provisionPackSelect.disabled =
     false;
 
   updateCramps(0, 0);
-  inventory = initialInventory();
+  inventory = initialInventory(selectedProvisionPack);
 
   ui.lastIntake.textContent = 'Et ole vielä nauttinut mitään.';
   ui.feedback.textContent = 'Valmistaudu ensimmäiseen vetoon';
@@ -230,6 +236,8 @@ function stabilizePreviewBodies() {
   carbs = 420;
   bloodCarbs = 30;
   gutCarbs = gutFluid = gutStress = 0;
+  digestionLoad = 0;
+  alcoholLoad = nicotineLoad = 0;
   fluidBalance = 0;
   sodiumBalance = 700;
   gutSodium = 0;
@@ -261,6 +269,22 @@ function seekPreview(progress) {
   }
   stabilizePreviewBodies();
   updatePreviewTimeline();
+}
+function setPreviewPaused(paused) {
+  if (!previewMode) return;
+  const now = performance.now();
+  if (paused && !previewPaused) previewPausedAt = now;
+  else if (!paused && previewPaused) {
+    const pausedFor = now - previewPausedAt;
+    phaseStart += pausedFor;
+    previewLastStroke += pausedFor;
+    previewPausedAt = 0;
+  }
+  previewPaused = paused;
+  previewPlaybackRate = paused ? 0 : Number(document.getElementById('previewSpeed').value) || 180;
+  const button = document.getElementById('previewPause');
+  button.textContent = paused ? 'Jatka' : 'Pysäytä';
+  button.setAttribute('aria-pressed', String(paused));
 }
 function botPowerPlan(bot, s) {
   const progress = bot.distance / TOTAL;
@@ -446,6 +470,7 @@ function start() {
     rowerSelect.value === '' ||
     boatSelect.value === '' ||
     materialSelect.value === ''
+    || provisionPackSelect.value === ''
   ) {
     return;
   }
@@ -478,6 +503,7 @@ function start() {
   rowerSelect.disabled =
     boatSelect.disabled =
     materialSelect.disabled =
+    provisionPackSelect.disabled =
     true;
 
   startTime = performance.now();
@@ -496,6 +522,7 @@ function startPreview() {
   if (running) return;
   rowingAudio.unlock();
   reset();
+  provisionPackSelect.value = 'athlete';
   selectDefaultCrew();
   selectCrew();
   prepareRaceDay();
@@ -504,7 +531,10 @@ function startPreview() {
   stabilizePreviewBodies();
   rowerChatter.arm(rower.name, true);
   previewMode = true;
+  previewPaused = false;
   previewPlaybackRate = Number(document.getElementById('previewSpeed').value) || 180;
+  document.getElementById('previewPause').textContent = 'Pysäytä';
+  document.getElementById('previewPause').setAttribute('aria-pressed', 'false');
   document.getElementById('previewControls').hidden = false;
   document.body.classList.add('preview-mode');
   running = true;
@@ -512,7 +542,7 @@ function startPreview() {
   rowingAudio.stopMenuMusic();
   document.body.classList.add('race-mode');
   resize();
-  rowerSelect.disabled = boatSelect.disabled = materialSelect.disabled = true;
+  rowerSelect.disabled = boatSelect.disabled = materialSelect.disabled = provisionPackSelect.disabled = true;
   startTime = performance.now();
   phaseStart = startTime;
   last = startTime;
@@ -587,8 +617,9 @@ function showFinishReport(sec, place, newRouteRecord = false) {
   let portions = 0,
     consumedCarbs = 0,
     consumedFluid = 0;
+  const startingInventory = initialInventory(selectedProvisionPack);
   for (const [key, food] of Object.entries(foods)) {
-    const used = food.stock - inventory[key];
+    const used = startingInventory[key] - inventory[key];
     portions += used;
     consumedCarbs += used * food.carbs;
     consumedFluid += used * food.fluid;
@@ -758,6 +789,7 @@ function update(dt, now) {
     hydration,
     blisters,
     gutStress,
+    digestionLoad,
     gutFluid,
     cramps
   });
@@ -765,7 +797,7 @@ function update(dt, now) {
   if (distance >= TOTAL) {
     distance = TOTAL;
     if (previewMode) {
-      previewPlaybackRate = 0;
+      setPreviewPaused(true);
       speed = 0;
       updatePreviewTimeline();
       updateUI(now);
