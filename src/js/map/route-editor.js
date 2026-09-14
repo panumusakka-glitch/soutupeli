@@ -4,8 +4,43 @@ const routeEditorEnabled = /(?:^|[?&])routeEditor=1(?:&|$)/.test(location.search
 
 let routeEditorPoints = [],
   routeEditorDrawing = false,
+  routeEditorPanning = false,
+  routeEditorPanStart,
+  routeEditorZoom = 1,
+  routeEditorCenter = [805 / 2, 851 / 2],
+  routeEditorClearance = 2,
   routeEditorOutput,
   routeEditorStatus;
+
+function routeEditorViewport(w, h) {
+  if (!routeEditorEnabled) return null;
+  const fit = Math.max(0, Math.min((w - 24) / 805, (h - 24) / 851)),
+    scale = fit * routeEditorZoom;
+  return {
+    w: 805 * scale,
+    h: 851 * scale,
+    x: w / 2 - routeEditorCenter[0] * scale,
+    y: h / 2 - routeEditorCenter[1] * scale
+  };
+}
+
+function routeEditorSetZoom(nextZoom, screenX, screenY) {
+  const w = canvas.clientWidth, h = canvas.clientHeight,
+    before = routeEditorViewport(w, h),
+    rawX = (screenX - before.x) / before.w * 805,
+    rawY = (screenY - before.y) / before.h * 851;
+  routeEditorZoom = clamp(nextZoom, 1, 12);
+  const after = routeEditorViewport(w, h), scale = after.w / 805;
+  routeEditorCenter = [
+    rawX - (screenX - w / 2) / scale,
+    rawY - (screenY - h / 2) / scale
+  ];
+}
+
+function routeEditorFit() {
+  routeEditorZoom = 1;
+  routeEditorCenter = [805 / 2, 851 / 2];
+}
 
 function routeEditorRawPoint(event) {
   const rect = canvas.getBoundingClientRect(),
@@ -30,6 +65,18 @@ function routeEditorDistanceToSegment(point, start, end) {
   return Math.hypot(point[0] - start[0] - t * dx, point[1] - start[1] - t * dy);
 }
 
+function routeEditorSegmentIsWater(start, end) {
+  if (!waterPixels) return true;
+  const steps = Math.max(1, Math.ceil(Math.hypot(end[0] - start[0], end[1] - start[1])));
+  for (let step = 0; step <= steps; step++) {
+    const t = step / steps,
+      x = Math.round(start[0] + (end[0] - start[0]) * t),
+      y = Math.round(start[1] + (end[1] - start[1]) * t);
+    if (!hasWaterClearance(x, y, routeEditorClearance)) return false;
+  }
+  return true;
+}
+
 function routeEditorSimplify(points, tolerance = 3) {
   if (points.length < 3) return points.slice();
   let furthest = 0, index = 0;
@@ -37,7 +84,7 @@ function routeEditorSimplify(points, tolerance = 3) {
     const distance = routeEditorDistanceToSegment(points[i], points[0], points.at(-1));
     if (distance > furthest) { furthest = distance; index = i; }
   }
-  if (furthest <= tolerance) return [points[0], points.at(-1)];
+  if (furthest <= tolerance && routeEditorSegmentIsWater(points[0], points.at(-1))) return [points[0], points.at(-1)];
   return [
     ...routeEditorSimplify(points.slice(0, index + 1), tolerance).slice(0, -1),
     ...routeEditorSimplify(points.slice(index), tolerance)
@@ -48,10 +95,10 @@ function routeEditorUpdateOutput() {
   if (!routeEditorOutput) return;
   const points = routeEditorSimplify(routeEditorPoints);
   routeEditorOutput.value = points.map(([x, y]) =>
-    `[${(x / 805).toFixed(4)}, ${(y / 851).toFixed(4)}]`
+    `[${(x / 805).toFixed(4)}, ${(y / 851).toFixed(4)}${routeEditorClearance === 2 ? '' : `, ${routeEditorClearance}`}]`
   ).join(',\n');
   const landPoints = routeEditorPoints.filter(([x, y]) =>
-    waterPixels && !hasWaterClearance(Math.round(x), Math.round(y), 2)
+    waterPixels && !hasWaterClearance(Math.round(x), Math.round(y), routeEditorClearance)
   ).length;
   routeEditorStatus.textContent = !points.length
     ? 'Piirrä kartalle kilpailusuuntaan.'
@@ -74,7 +121,7 @@ function drawRouteEditorOverlay(m) {
   drawLine(route.map(([x, y]) => [x * 805, y * 851]), 'rgba(255,255,255,.7)', 2);
   for (let i = 1; i < routeEditorPoints.length; i++) {
     const pair = [routeEditorPoints[i - 1], routeEditorPoints[i]],
-      invalid = pair.some(([x, y]) => !hasWaterClearance(Math.round(x), Math.round(y), 2));
+      invalid = pair.some(([x, y]) => !hasWaterClearance(Math.round(x), Math.round(y), routeEditorClearance));
     drawLine(pair, invalid ? '#ff3048' : '#ffe040', 4);
   }
   c.restore();
@@ -94,8 +141,10 @@ if (routeEditorEnabled) {
   panel.className = 'route-editor-panel';
   panel.innerHTML = `
     <strong>REITTIEDITORI</strong>
-    <span>Piirrä hiirellä tai sormella lisättävä osuus kilpailusuuntaan. Valkoinen viiva on nykyinen reitti.</span>
+    <span>Piirrä hiirellä tai sormella kilpailusuuntaan. Rulla zoomaa, oikea painike siirtää. Valkoinen viiva on nykyinen reitti.</span>
+    <label>Turvaväli <select data-action="clearance"><option value="2">Normaali · 2 px</option><option value="1">Kapea · 1 px</option><option value="0">Erittäin kapea · 0 px</option></select></label>
     <textarea aria-label="Piirretyt reittipisteet" readonly></textarea>
+    <div><button type="button" data-action="zoom-out">−</button><button type="button" data-action="zoom-in">+</button><button type="button" data-action="fit">Sovita</button></div>
     <div><button type="button" data-action="copy">Kopioi pisteet</button><button type="button" data-action="clear">Tyhjennä</button></div>
     <output aria-live="polite"></output>`;
   panel.style.cssText = 'box-sizing:border-box;position:absolute;z-index:5;top:12px;right:12px;width:min(330px,calc(100% - 24px));display:grid;gap:8px;padding:12px;background:rgba(16,24,48,.94);border:2px solid #ffe56b;box-shadow:3px 3px #080f20;color:#fff8d8;font:12px "Courier New",monospace';
@@ -103,6 +152,7 @@ if (routeEditorEnabled) {
   routeEditorOutput = panel.querySelector('textarea');
   routeEditorStatus = panel.querySelector('output');
   routeEditorOutput.style.cssText = 'box-sizing:border-box;width:100%;height:110px;resize:vertical;background:#08142c;border:1px solid #92b2d8;color:#fff8d8;font:12px "Courier New",monospace';
+  panel.querySelector('select').style.cssText = 'margin-left:8px;padding:4px;background:#08142c;border:1px solid #92b2d8;color:#fff8d8';
   routeEditorStatus.style.color = '#a9d8ff';
   panel.querySelectorAll('button').forEach(button => button.style.cssText = 'min-height:34px;padding:6px 10px;background:#c84038;border:2px solid #f8f0c0;color:white;font-weight:700;cursor:pointer');
   routeEditorUpdateOutput();
@@ -115,24 +165,60 @@ if (routeEditorEnabled) {
     await navigator.clipboard.writeText(routeEditorOutput.value);
     routeEditorStatus.textContent = 'Pisteet kopioitu leikepöydälle.';
   };
+  panel.querySelector('[data-action="zoom-in"]').onclick = () => routeEditorSetZoom(routeEditorZoom * 1.5, canvas.clientWidth / 2, canvas.clientHeight / 2);
+  panel.querySelector('[data-action="zoom-out"]').onclick = () => routeEditorSetZoom(routeEditorZoom / 1.5, canvas.clientWidth / 2, canvas.clientHeight / 2);
+  panel.querySelector('[data-action="fit"]').onclick = routeEditorFit;
+  panel.querySelector('[data-action="clearance"]').onchange = event => {
+    routeEditorClearance = Number(event.target.value);
+    routeEditorUpdateOutput();
+  };
+  canvas.addEventListener('wheel', event => {
+    event.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    routeEditorSetZoom(routeEditorZoom * Math.exp(-event.deltaY * .0015), event.clientX - rect.left, event.clientY - rect.top);
+  }, {passive: false});
+  canvas.addEventListener('contextmenu', event => event.preventDefault());
   canvas.addEventListener('pointerdown', event => {
     event.preventDefault(); event.stopImmediatePropagation();
+    if (event.button === 2) {
+      routeEditorPanning = true;
+      routeEditorPanStart = [event.clientX, event.clientY, ...routeEditorCenter];
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
+    if (event.button !== 0) return;
     routeEditorDrawing = true;
     canvas.setPointerCapture(event.pointerId);
     routeEditorAddPoint(event);
   });
   canvas.addEventListener('pointermove', event => {
+    if (routeEditorPanning) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      const m = routeEditorViewport(canvas.clientWidth, canvas.clientHeight), scale = m.w / 805;
+      routeEditorCenter = [
+        routeEditorPanStart[2] - (event.clientX - routeEditorPanStart[0]) / scale,
+        routeEditorPanStart[3] - (event.clientY - routeEditorPanStart[1]) / scale
+      ];
+      return;
+    }
     if (!routeEditorDrawing) return;
     event.preventDefault(); event.stopImmediatePropagation();
     routeEditorAddPoint(event);
   });
   for (const type of ['pointerup', 'pointercancel']) canvas.addEventListener(type, event => {
+    if (routeEditorPanning) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      routeEditorPanning = false;
+      return;
+    }
     if (!routeEditorDrawing) return;
     event.preventDefault(); event.stopImmediatePropagation();
     routeEditorAddPoint(event);
     routeEditorDrawing = false;
   });
   addEventListener('keydown', event => {
-    if (event.code === 'Space') { event.preventDefault(); event.stopImmediatePropagation(); }
+    const editable = event.target?.closest?.('input,textarea,select,[contenteditable]');
+    if (!editable && !event.ctrlKey && !event.metaKey && event.code !== 'F5') event.preventDefault();
+    event.stopImmediatePropagation();
   }, true);
 }

@@ -20,7 +20,8 @@ const retroMap = document.createElement('canvas');
 let retroMapReady = false,
   waterPixels,
   waterRoute,
-  waterRoutePixels;
+  waterRoutePixels,
+  waterBranches = [];
 const STADIUM_RAW = {x: 395, y: 79};
 // Water immediately in front of Soutustadion; this is both the visible gate
 // and the single official endpoint used by every racer.
@@ -61,9 +62,13 @@ function setMapOverview(value) {
   mapToggle.setAttribute('aria-pressed', String(value));
 }
 function mapViewport(w, h) {
+  if (typeof routeEditorViewport === 'function') {
+    const editorViewport = routeEditorViewport(w, h);
+    if (editorViewport) return editorViewport;
+  }
   if (running && !mapOverview) {
     const scale = Math.min(w, h) / (1000 * routePixels / TOTAL);
-    const p = botPointOnWater(distance / TOTAL, 805 * scale, 851 * scale);
+    const p = racerPointOnWater(distance / TOTAL, 805 * scale, 851 * scale, playerRouteChoice);
     return {
       w: 805 * scale,
       h: 851 * scale,
@@ -178,15 +183,17 @@ function buildWaterRoute() {
   for (let i = 1; i < route.length; i++) {
     const from = [route[i - 1][0] * 805, route[i - 1][1] * 851],
       to = [route[i][0] * 805, route[i][1] * 851],
+      clearance = Math.min(route[i - 1][2] ?? 2, route[i][2] ?? 2),
       steps = Math.max(1, Math.ceil(Math.hypot(to[0] - from[0], to[1] - from[1])));
     for (let step = i === 1 ? 0 : 1; step <= steps; step++) {
       const t = step / steps;
-      denseRoute.push(nearestWaterPoint(
+      const waterPoint = nearestWaterPoint(
         Math.round(from[0] + (to[0] - from[0]) * t),
         Math.round(from[1] + (to[1] - from[1]) * t),
-        2,
+        clearance,
         24
-      ));
+      );
+      denseRoute.push([...waterPoint, clearance]);
     }
   }
   waterRoute = [denseRoute[0]];
@@ -196,9 +203,10 @@ function buildWaterRoute() {
     if (previous[0] === next[0] && previous[1] === next[1]) continue;
     const dx = Math.abs(next[0] - previous[0]),
       dy = Math.abs(next[1] - previous[1]),
-      diagonalIsClear = !dx || !dy || (hasWaterClearance(next[0], previous[1], 2) && hasWaterClearance(previous[0], next[1], 2));
+      clearance = Math.min(previous[2] ?? 2, next[2] ?? 2),
+      diagonalIsClear = !dx || !dy || (hasWaterClearance(next[0], previous[1], clearance) && hasWaterClearance(previous[0], next[1], clearance));
     if (dx <= 1 && dy <= 1 && diagonalIsClear) waterRoute.push(next);
-    else waterRoute.push(...(waterPath(previous, next, 2) || [previous, next]).slice(1));
+    else waterRoute.push(...(waterPath(previous, next, clearance) || [previous, next]).slice(1).map(point => [point[0], point[1], clearance]));
   }
   let finishIndex = 1, finishDistance = Infinity;
   for (let i = 1; i < waterRoute.length; i++) {
@@ -210,6 +218,51 @@ function buildWaterRoute() {
   }
   waterRoute = waterRoute.slice(0, finishIndex + 1);
   waterRoutePixels = waterRoute.slice(1).reduce((sum, point, i) => sum + Math.hypot(point[0] - waterRoute[i][0], point[1] - waterRoute[i][1]), 0);
+  buildWaterBranches();
+}
+function nearestWaterRouteIndex(point) {
+  let bestIndex = 0, bestDistance = Infinity;
+  for (let i = 0; i < waterRoute.length; i++) {
+    const candidate = waterRoute[i], distance = Math.hypot(candidate[0] - point[0] * 805, candidate[1] - point[1] * 851);
+    if (distance < bestDistance) { bestIndex = i; bestDistance = distance; }
+  }
+  return bestIndex;
+}
+function buildWaterBranches() {
+  waterBranches = routeBranches.map(branch => {
+    const startIndex = nearestWaterRouteIndex(branch.start), endIndex = nearestWaterRouteIndex(branch.end);
+    let before = 0, through = 0;
+    for (let i = 1; i <= endIndex; i++) {
+      const length = Math.hypot(waterRoute[i][0] - waterRoute[i - 1][0], waterRoute[i][1] - waterRoute[i - 1][1]);
+      if (i <= startIndex) before += length; else through += length;
+    }
+    return {
+      ...branch,
+      from: before / waterRoutePixels,
+      to: (before + through) / waterRoutePixels,
+      path: [waterRoute[startIndex].slice(0, 2), ...branch.alternative.slice(1, -1).map(point => [point[0] * 805, point[1] * 851]), waterRoute[endIndex].slice(0, 2)]
+    };
+  });
+}
+function pointOnRawPath(path, progress, w, h) {
+  const lengths = path.slice(1).map((point, i) => Math.hypot(point[0] - path[i][0], point[1] - path[i][1])),
+    total = lengths.reduce((sum, length) => sum + length, 0);
+  let target = clamp(progress) * total;
+  for (let i = 0; i < lengths.length; i++) {
+    if (target <= lengths[i]) {
+      const a = path[i], b = path[i + 1], t = target / lengths[i];
+      return {x: (a[0] + (b[0] - a[0]) * t) / 805 * w, y: (a[1] + (b[1] - a[1]) * t) / 851 * h,
+        angle: Math.atan2((b[1] - a[1]) / 851 * h, (b[0] - a[0]) / 805 * w)};
+    }
+    target -= lengths[i];
+  }
+  const end = path.at(-1), before = path.at(-2) || end;
+  return {x: end[0] / 805 * w, y: end[1] / 851 * h,
+    angle: Math.atan2((end[1] - before[1]) / 851 * h, (end[0] - before[0]) / 805 * w)};
+}
+function racerPointOnWater(progress, w, h, choice = 'primary') {
+  const branch = choice === 'alternative' && waterBranches.find(candidate => progress >= candidate.from && progress <= candidate.to);
+  return branch ? pointOnRawPath(branch.path, (progress - branch.from) / (branch.to - branch.from), w, h) : botPointOnWater(progress, w, h);
 }
 function botPointOnWater(progress, w, h) {
   if (!waterRoutePixels) return pointOnRoute(clamp(progress), w, h);
@@ -242,33 +295,51 @@ function botPointOnWater(progress, w, h) {
  * Muodostelma sulautuu varsinaiseen reittisijaintiin ensimmäisten metrien
  * aikana, joten kilpailun mittaus ja sijoitukset eivät muutu.
  */
-function formationPoint(racerDistance, racerIndex, racerCount, racerLane, m) {
-  const release = clamp(racerDistance / 140);
-  const p = botPointOnWater(racerDistance / TOTAL, 805, 851);
+function availableLaneFraction(point, sideways) {
+  const offsetX = -Math.sin(point.angle) * sideways, offsetY = Math.cos(point.angle) * sideways;
+  if (hasWaterClearance(Math.round(point.x + offsetX), Math.round(point.y + offsetY), 2)) return 1;
+  let low = 0, high = 1;
+  for (let i = 0; i < 8; i++) {
+    const middle = (low + high) / 2;
+    if (hasWaterClearance(Math.round(point.x + offsetX * middle), Math.round(point.y + offsetY * middle), 2)) low = middle;
+    else high = middle;
+  }
+  return low;
+}
+function anticipatedLaneFraction(racerDistance, sideways, routeChoice) {
+  const lookAhead = 700, step = 100;
+  let fraction = 1;
+  for (let ahead = 0; ahead <= lookAhead; ahead += step) {
+    const futureDistance = Math.min(TOTAL, racerDistance + ahead),
+      point = racerPointOnWater(futureDistance / TOTAL, 805, 851, routeChoice),
+      available = availableLaneFraction(point, sideways),
+      urgency = 1 - ahead / (lookAhead + step);
+    fraction = Math.min(fraction, 1 - (1 - available) * urgency);
+  }
+  return fraction;
+}
+function formationPoint(racerDistance, racerIndex, racerCount, racerLane, m, routeChoice = 'primary') {
+  const release = clamp(racerDistance / 140), p = racerPointOnWater(racerDistance / TOTAL, 805, 851, routeChoice);
   const columns = 5;
   const column = racerIndex % columns - (columns - 1) / 2;
   const finishMerge = clamp((TOTAL - racerDistance) / 300);
   const sideways = (column * (1 - release) + racerLane * release) * 4.5 * finishMerge;
-  const forwards = 0;
-  const offsetX = Math.cos(p.angle) * forwards - Math.sin(p.angle) * sideways;
-  const offsetY = Math.sin(p.angle) * forwards + Math.cos(p.angle) * sideways;
-  let laneFraction = 1;
-  if (!hasWaterClearance(Math.round(p.x + offsetX), Math.round(p.y + offsetY), 2)) {
-    // Stay on the current water path and shrink the lane offset smoothly.
-    // Do not snap to another lake pixel: that made boats visibly jump.
-    let low = 0,
-      high = 1;
-    for (let i = 0; i < 8; i++) {
-      const middle = (low + high) / 2;
-      if (hasWaterClearance(Math.round(p.x + offsetX * middle), Math.round(p.y + offsetY * middle), 2)) low = middle;
-      else high = middle;
-    }
-    laneFraction = low;
-  }
+  const laneFraction = anticipatedLaneFraction(racerDistance, sideways, routeChoice),
+    offsetX = -Math.sin(p.angle) * sideways * laneFraction,
+    offsetY = Math.cos(p.angle) * sideways * laneFraction,
+    tangentDistance = Math.min(TOTAL, racerDistance + 35),
+    tangent = racerPointOnWater(tangentDistance / TOTAL, 805, 851, routeChoice),
+    tangentSideways = (column * (1 - clamp(tangentDistance / 140)) + racerLane * clamp(tangentDistance / 140)) * 4.5 * clamp((TOTAL - tangentDistance) / 300),
+    tangentFraction = anticipatedLaneFraction(tangentDistance, tangentSideways, routeChoice),
+    tangentX = tangent.x - Math.sin(tangent.angle) * tangentSideways * tangentFraction,
+    tangentY = tangent.y + Math.cos(tangent.angle) * tangentSideways * tangentFraction,
+    angle = Math.hypot(tangentX - p.x - offsetX, tangentY - p.y - offsetY) > .01
+      ? Math.atan2(tangentY - p.y - offsetY, tangentX - p.x - offsetX)
+      : p.angle;
   return {
     x: (p.x + offsetX * laneFraction) / 805 * m.w,
     y: (p.y + offsetY * laneFraction) / 851 * m.h,
-    angle: p.angle
+    angle
   };
 }
 function drawFinishMarker(m) {
@@ -509,10 +580,10 @@ function draw(now) {
       drawAmbulanceBoat(m, now);
       drawKietavalaFerry(m);
       for (const [index, bot] of botRacers.entries()) {
-        const botPoint = formationPoint(bot.distance, index + 1, botRacers.length + 1, bot.lane, m);
+        const botPoint = formationPoint(bot.distance, index + 1, botRacers.length + 1, bot.lane, m, bot.routeChoice);
         botBoat(m.x + botPoint.x, m.y + botPoint.y, botPoint.angle, bot);
       }
-      const p = formationPoint(distance, 0, botRacers.length + 1, 0, m);
+      const p = formationPoint(distance, 0, botRacers.length + 1, 0, m, playerRouteChoice);
       boat(m.x + p.x, m.y + p.y, p.angle, now);
     }
   } else {
@@ -525,10 +596,10 @@ function draw(now) {
   if (typeof drawRouteEditorOverlay === 'function') drawRouteEditorOverlay(m, w, h);
   if (retroMapReady && running) {
     for (const [index, bot] of botRacers.entries()) {
-      const botPoint = formationPoint(bot.distance, index + 1, botRacers.length + 1, bot.lane, m);
+      const botPoint = formationPoint(bot.distance, index + 1, botRacers.length + 1, bot.lane, m, bot.routeChoice);
       drawBotPortrait({x: m.x + botPoint.x, y: m.y + botPoint.y}, bot);
     }
-    const p = formationPoint(distance, 0, botRacers.length + 1, 0, m);
+    const p = formationPoint(distance, 0, botRacers.length + 1, 0, m, playerRouteChoice);
     p.x += m.x;
     p.y += m.y;
     drawMapLabels(m, w, h, p);
