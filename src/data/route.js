@@ -23,6 +23,12 @@ const routeBranches = [{
   start: [.3727, .2367, 1],
   end: [.3122, .2225, 1],
   alternative: [[.3727, .2367, 1], [.3418, .2224, 1], [.3122, .2225, 1]]
+}, {
+  id: 'lepistonselka-ita',
+  label: 'Lepistönselkä',
+  start: [.8035, .8294, 1],
+  end: [.7897, .7476, 1],
+  alternative: [[.8035, .8288, 1], [.8078, .8010, 1], [.7969, .7665, 1], [.7897, .7581, 1]]
 }];
 const mapLabels = [
   ['Sulkava', 348, 49],

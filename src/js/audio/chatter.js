@@ -8,7 +8,11 @@ const rowerChatter = (() => {
     lastBand = null,
     windTime = 0,
     stomachBand = null,
+    fuelingTrouble = false,
     lastLine = '',
+    nextCrowdAt = Infinity,
+    crowdUtterance = null,
+    crowdTurn = 0,
     armed = false;
   const saidAt = new Map();
   let selectedRower = '',
@@ -72,6 +76,7 @@ const rowerChatter = (() => {
   }
   function cancel() {
     synth?.cancel();
+    crowdUtterance = null;
   }
   function reset() {
     cancel();
@@ -82,7 +87,11 @@ const rowerChatter = (() => {
     lastBand = null;
     windTime = 0;
     stomachBand = null;
+    fuelingTrouble = false;
     lastLine = '';
+    nextCrowdAt = Infinity;
+    crowdUtterance = null;
+    crowdTurn = 0;
     saidAt.clear();
     armed = false;
     clock = 0;
@@ -161,6 +170,48 @@ const rowerChatter = (() => {
     nextAt = time + (time < 300 ? 25 + Math.random() * 35 : 180 + Math.random() * 300);
     return true;
   }
+  function crowdName(name) {
+    if (name === 'Ari Kankkunen') return 'Arska';
+    return name.split(/\s+/)[0];
+  }
+  function cheerFromCrowd(time, distance, bots = []) {
+    const inStadium = distance >= 27400 && distance < 29400;
+    if (!inStadium) {
+      nextCrowdAt = Infinity;
+      crowdTurn = 0;
+      if (crowdUtterance) cancel();
+      return false;
+    }
+    if (nextCrowdAt === Infinity) nextCrowdAt = time;
+    if (time < nextCrowdAt || !autoSpeech || !rowingAudio.isEnabled() || !synth ||
+      !globalThis.SpeechSynthesisUtterance || document.hidden || synth.speaking || synth.pending) return false;
+
+    const nearbyBots = bots.filter(bot => bot.distance >= 27400 && bot.distance < 29400);
+    const playerCheers = [`Hyvä ${crowdName(selectedRower)}!`, 'Jaksaa, jaksaa, ei oo enää pitkä matka!', 'Loppukiri!'];
+    const bot = nearbyBots.length ? nearbyBots[crowdTurn % nearbyBots.length] : null;
+    const text = crowdTurn % 3 === 2 && bot ? `Hyvä ${crowdName(bot.name)}!` : playerCheers[crowdTurn % playerCheers.length];
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'fi-FI';
+    utterance.rate = 1.04 + Math.random() * .08;
+    utterance.pitch = .95 + Math.random() * .2;
+    utterance.volume = .9;
+    const voices = synth.getVoices().filter(v => /^fi(?:-|_|$)/i.test(v.lang));
+    const voice = voices[crowdTurn % Math.max(1, voices.length)];
+    if (voice) utterance.voice = voice;
+    crowdUtterance = utterance;
+    utterance.onend = utterance.onerror = () => {
+      if (crowdUtterance === utterance) crowdUtterance = null;
+    };
+    try {
+      synth.speak(utterance);
+    } catch {
+      crowdUtterance = null;
+      return false;
+    }
+    crowdTurn++;
+    nextCrowdAt = time + 7 + Math.random() * 7;
+    return true;
+  }
   function badStroke(quality, time) {
     if (quality < .22 && time > 20 && Math.random() < (time < 300 ? .25 : .12)) say('bad', time);
   }
@@ -178,9 +229,12 @@ const rowerChatter = (() => {
       active,
       wind,
       quality,
-      totalKm
+      totalKm,
+      distance,
+      bots
     } = state;
     clock = time;
+    if (cheerFromCrowd(time, distance, bots)) return;
     smoothedSpeed += (speed - smoothedSpeed) * (1 - Math.exp(-dt / 30));
     windTime = wind && active ? windTime + dt : 0;
     if (!active || time < 60 || smoothedSpeed < 2) {
@@ -194,6 +248,12 @@ const rowerChatter = (() => {
       stomachBand = currentStomachBand;
       return;
     }
+    const currentFuelingTrouble = condition.energy < 45 || condition.hydration < 75 || condition.freshness < 55;
+    if (currentFuelingTrouble && !fuelingTrouble && say('fueling', time)) {
+      fuelingTrouble = true;
+      return;
+    }
+    if (!currentFuelingTrouble) fuelingTrouble = false;
     const hours = totalKm / smoothedSpeed;
     const candidate = hours < 5 ? 'five' : hours < 6 ? 'six' : hours < 7 ? 'seven' : 'slow';
     if (candidate !== band) {

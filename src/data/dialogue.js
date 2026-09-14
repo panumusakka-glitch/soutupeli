@@ -17,6 +17,7 @@ const lines = {
   smoke: ['Laitetaanhan nortti huuleen.', 'Se olis taas körssitauon paikka.']
 };
 const complaints = {
+  fueling: ['Ei saatana, taaskaan tankkaus onnistunut.'],
   tired: ['Vittu, voimat on niin lopussa, että varjokin soutaisi kovempaa.', 'Perkele, airo painaa kuin märkä puhelinpylväs.', 'Saatana, nyt alkaa soutaja ja vene olla eri mieltä tästä harrastuksesta.', 'Ei helvetti, mummotkin soutaisivat kohta ohi.', 'Perkele, lupasin yhden lenkin. En loppuelämää tässä veneessä.'],
   energy: ['Vittu, tankki on tyhjä. Missä ne saatanan geelit on?', 'Perkele, ei tämä vene kulje pelkällä vitutuksella. Energiaa nyt.', 'Saatana, tähän tarvittaisiin geelin sijaan pitopöytä.', 'Ei helvetti, karkit tänne ennen kuin sammun tähän penkille.'],
   stomach: ['Voi vittu, vatsassa velloo kuin toinen Saimaa.', 'Perkele, mustikkakeitto soutaa kohta takaisin.', 'Saatana, vatsa pitää kovempaa meteliä kuin airot.', 'Ei helvetti, kuka tankkasi tähän mahaan pesukoneen?'],

@@ -1,5 +1,5 @@
 const intakeForms = {
-  water: 'vett\u00e4', saltwater: 'suolavett\u00e4', sportsdrink: 'urheilujuomaa',
+  water: 'vett\u00e4', saltwater: 'suolavett\u00e4', sportsdrink: 'Hart Sportia', gel: 'Dexalia',
   juice: 'mustikkakeittoa', beer: 'Karhu-olutta', cola: 'sokerillista Coca-Colaa',
   candy: 'Fazer-hedelm\u00e4makeista', sausage: 'HK-Sinist\u00e4'
 };

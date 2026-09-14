@@ -79,12 +79,12 @@ function strokeRateBlisterFactor(rpm) {
   return 1 + 3.5 * Math.pow((rpm - 25) / 25, 1.7);
 }
 
-function powerStrain() {
-  return Math.pow(effectiveStrokePower() / 70, 2);
+function powerStrain(demand = calculateExerciseDemand()) {
+  return demand.powerLoad;
 }
 
-function overdriveStrain() {
-  return Math.max(0, (effectiveStrokePower() - 100) / 10);
+function overdriveStrain(demand = calculateExerciseDemand()) {
+  return demand.overdrive;
 }
 
 function rowerSweatRate(r = rower) {
@@ -101,7 +101,7 @@ function criticalStrokePower(r = rower, currentFreshness = freshness) {
   return (54 + .30 * r.endurance + .08 * r.power) * (.82 + .18 * currentFreshness / 100);
 }
 
-function effectiveStrokePower() {
+function availableStrokePower() {
   const critical = criticalStrokePower();
   const nicotineFactor = 1 - Math.min(.22, .025 * Math.pow(nicotineLoad, 1.25));
   const digestionFactor = 1 - Math.min(.12, .0012 * Math.pow(digestionLoad, 1.08));
@@ -113,6 +113,57 @@ function effectiveStrokePower() {
   // request cannot turn into an indefinitely sustainable critical effort.
   const depletedLimit = critical * (.86 + .08 * freshness / 100);
   return (depletedLimit + (strokePower - depletedLimit) * clamp(wPrime / 30)) * substanceFactor;
+}
+
+/*
+ * Yksi tilannekuva pelaajan tämänhetkisestä suorituksesta. Tämä pitää
+ * etenemiseen ja fysiologiaan käytetyt arvot samoina yhden päivityksen ajan.
+ * Paluuarvo erottaa pyydetyn, kehon tuottaman ja veneeseen välittyvän tehon,
+ * jotta mallia voidaan myöhemmin tarkentaa ilman uusia rinnakkaisia kaavoja.
+ */
+function calculateExerciseDemand(s = null, active = true, now = performance.now()) {
+  const rpm = currentStrokeRate(now);
+  const effectivePower = availableStrokePower();
+  const criticalPower = criticalStrokePower();
+  const cadenceStrain = strokeRateStrain(rpm);
+  const powerLoad = active ? Math.pow(effectivePower / 70, 2) : 1;
+  const overdrive = active ? Math.max(0, (effectivePower - 100) / 10) : 0;
+  const powerEffort = .35 + .65 * clamp((effectivePower - 30) / 80);
+  const cadenceEffort = clamp(rpm / TARGET_SPM, .35, 1.45);
+  const techniqueCost = 1 + .25 * clamp(1 - quality);
+  const resistance = 1 + Math.max(0, s?.speedLoss || 0) / 4.6;
+  const effort = active
+    ? clamp(powerEffort * cadenceEffort * techniqueCost * resistance)
+    : 0;
+  const dayStrain = (raceDay?.strain || 1) *
+    (s?.wind ? 1 + ((raceDay?.windStrain || 1) - 1) * (s.windLoad ?? 1) : 1);
+  const carbohydrateBurnRate = active
+    ? (
+      48 +
+      45 * Math.pow(effort, 1.7) +
+      30 * cadenceStrain +
+      35 * Math.max(0, powerLoad - 1) +
+      150 * overdrive
+    ) * dayStrain
+    : 0;
+
+  return {
+    requestedPower: strokePower,
+    criticalPower,
+    effectivePower,
+    propulsionPower: effectivePower * strokeRateEfficiency(rpm),
+    effort,
+    carbohydrateBurnRate,
+    anaerobicLoad: Math.max(0, effectivePower - criticalPower) / 15,
+    rpm,
+    cadenceStrain,
+    powerLoad,
+    overdrive
+  };
+}
+
+function effectiveStrokePower() {
+  return calculateExerciseDemand().effectivePower;
 }
 
 function updateWPrime(dt, active) {
@@ -130,14 +181,14 @@ function updateWPrime(dt, active) {
   }
 }
 
-function updateFreshness(dt, effort, active) {
+function updateFreshness(dt, effort, active, demand = calculateExerciseDemand()) {
   if (!active) return;
-  const load = .35 + .65 * effort + .20 * strokeRateStrain(currentStrokeRate()) +
-    .35 * Math.max(0, effectiveStrokePower() - criticalStrokePower()) / 15;
+  const load = .35 + .65 * effort + .20 * demand.cadenceStrain +
+    .35 * demand.anaerobicLoad;
   freshness = clamp(freshness - load * dt / 900, 0, 100);
 }
 
-function updateTechniqueControl(dt, s, effort, active) {
+function updateTechniqueControl(dt, s, effort, active, demand = calculateExerciseDemand(s, active)) {
   if (!active) return;
 
   const fatigueLoad =
@@ -145,8 +196,8 @@ function updateTechniqueControl(dt, s, effort, active) {
     Math.max(0, 75 - hydration) / 75 +
     .45 * (1 - freshness / 100) +
     .35 * (1 - wPrime / 100) +
-    .55 * Math.max(0, effectiveStrokePower() - criticalStrokePower()) / 15 +
-    .25 * strokeRateStrain(currentStrokeRate()) +
+    .55 * demand.anaerobicLoad +
+    .25 * demand.cadenceStrain +
     .16 * Math.pow(alcoholLoad, 1.2) +
     .08 * Math.pow(nicotineLoad, 1.15) +
     .004 * Math.pow(digestionLoad, 1.15) +
@@ -166,14 +217,7 @@ function updateTechniqueControl(dt, s, effort, active) {
 }
 
 function rowingEffort(s, active = true) {
-  if (!active) return 0;
-
-  const powerEffort = .35 + .65 * clamp((effectiveStrokePower() - 30) / 80);
-  const cadenceEffort = clamp(currentStrokeRate() / TARGET_SPM, .35, 1.45);
-  const techniqueCost = 1 + .25 * clamp(1 - quality);
-  const resistance = 1 + Math.max(0, s.speedLoss) / 4.6;
-
-  return clamp(powerEffort * cadenceEffort * techniqueCost * resistance);
+  return calculateExerciseDemand(s, active).effort;
 }
 
 function maxRowerSpeed(r = rower) {
@@ -205,13 +249,9 @@ function crampFactor() {
   );
 }
 
-function updateCramps(dt, effort, active = true, s = null) {
-  const rpm = currentStrokeRate();
-  const cadenceStrain = strokeRateStrain(rpm);
-  const powerLoad = active ? powerStrain() : 1;
-  const overdrive = active ? overdriveStrain() : 0;
-  const effectivePower = effectiveStrokePower();
-  const overCritical = Math.max(0, effectivePower - criticalStrokePower()) / 15;
+function updateCramps(dt, effort, active = true, s = null, demand = calculateExerciseDemand(s, active)) {
+  const {rpm, cadenceStrain, powerLoad, overdrive} = demand;
+  const overCritical = demand.anaerobicLoad;
   const reserveDepletion = 1 - wPrime / 100;
   const windLoad = s?.wind
     ? (.35 + Math.max(0, s.speedLoss) / 4) * (s.windLoad ?? 1)
@@ -273,32 +313,16 @@ function updateBody(dt, s, raceSec, active) {
   const hour = dt / 3600;
   const alcoholAtStart = alcoholLoad;
   const nicotineAtStart = nicotineLoad;
-  const rpm = currentStrokeRate();
-
-  const effort = rowingEffort(s, active);
+  // Effort is established before W′ changes, matching the force that caused
+  // this time step. Consequences use the post-update power snapshot.
+  const effortDemand = calculateExerciseDemand(s, active);
+  const effort = effortDemand.effort;
+  const carbBurn = effortDemand.carbohydrateBurnRate * hour;
   updateWPrime(dt, active);
-  updateFreshness(dt, effort, active);
-  updateTechniqueControl(dt, s, effort, active);
-  const cadenceStrain = strokeRateStrain(rpm);
-  const powerLoad = active ? powerStrain() : 1;
-  const overdrive = active ? overdriveStrain() : 0;
-  const dayStrain = (raceDay?.strain || 1) * (s.wind ? 1 + ((raceDay?.windStrain || 1) - 1) * (s.windLoad ?? 1) : 1);
-
-  /*
-   * Liian suuri vetotahti kuluttaa energiaa,
-   * vaikka vene ei enää kulkisi kovempaa.
-   */
-  const cadenceCarbBurn = 30 * cadenceStrain;
-
-  const carbBurn = active
-    ? (
-      48 +
-      45 * Math.pow(effort, 1.7) +
-      cadenceCarbBurn +
-      35 * Math.max(0, powerLoad - 1) +
-      150 * overdrive
-    ) * dayStrain * hour
-    : 0;
+  const demand = calculateExerciseDemand(s, active);
+  const {rpm, cadenceStrain, powerLoad} = demand;
+  updateFreshness(dt, effort, active, demand);
+  updateTechniqueControl(dt, s, effort, active, demand);
 
   const carbAbsorb = Math.min(
     gutCarbs,
@@ -335,7 +359,7 @@ function updateBody(dt, s, raceSec, active) {
   gutSodium -= sodiumAbsorb;
   sodiumBalance += sodiumAbsorb;
 
-  updateCramps(dt, effort, active, s);
+  updateCramps(dt, effort, active, s, demand);
 
   /*
    * Ylikova vetotahti kasvattaa hieman myös hikoilua.

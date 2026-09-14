@@ -3,6 +3,7 @@
 const routeEditorEnabled = /(?:^|[?&])routeEditor=1(?:&|$)/.test(location.search);
 
 let routeEditorPoints = [],
+  routeEditorMode = 'points',
   routeEditorDrawing = false,
   routeEditorPanning = false,
   routeEditorPanStart,
@@ -93,7 +94,7 @@ function routeEditorSimplify(points, tolerance = 3) {
 
 function routeEditorUpdateOutput() {
   if (!routeEditorOutput) return;
-  const points = routeEditorSimplify(routeEditorPoints);
+  const points = routeEditorMode === 'route' ? routeEditorSimplify(routeEditorPoints) : routeEditorPoints;
   routeEditorOutput.value = points.map(([x, y]) =>
     `[${(x / 805).toFixed(4)}, ${(y / 851).toFixed(4)}${routeEditorClearance === 2 ? '' : `, ${routeEditorClearance}`}]`
   ).join(',\n');
@@ -101,8 +102,10 @@ function routeEditorUpdateOutput() {
     waterPixels && !hasWaterClearance(Math.round(x), Math.round(y), routeEditorClearance)
   ).length;
   routeEditorStatus.textContent = !points.length
-    ? 'Piirrä kartalle kilpailusuuntaan.'
-    : `${points.length} reittipistettä · ${landPoints ? `${landPoints} piirrospistettä liian lähellä maata` : 'koko piirros vesialueella'}`;
+    ? routeEditorMode === 'route' ? 'Piirrä kartalle kilpailusuuntaan.' : 'Merkitse mökkipaikat kartalle.'
+    : routeEditorMode === 'route'
+      ? `${points.length} reittipistettä · ${landPoints ? `${landPoints} piirrospistettä liian lähellä maata` : 'koko piirros vesialueella'}`
+      : `${points.length} mökkipaikka${points.length === 1 ? '' : 'a'} merkitty`;
 }
 
 function drawRouteEditorOverlay(m) {
@@ -119,10 +122,19 @@ function drawRouteEditorOverlay(m) {
   }
   c.save();
   drawLine(route.map(([x, y]) => [x * 805, y * 851]), 'rgba(255,255,255,.7)', 2);
-  for (let i = 1; i < routeEditorPoints.length; i++) {
-    const pair = [routeEditorPoints[i - 1], routeEditorPoints[i]],
-      invalid = pair.some(([x, y]) => !hasWaterClearance(Math.round(x), Math.round(y), routeEditorClearance));
-    drawLine(pair, invalid ? '#ff3048' : '#ffe040', 4);
+  if (routeEditorMode === 'route') {
+    for (let i = 1; i < routeEditorPoints.length; i++) {
+      const pair = [routeEditorPoints[i - 1], routeEditorPoints[i]],
+        invalid = pair.some(([x, y]) => !hasWaterClearance(Math.round(x), Math.round(y), routeEditorClearance));
+      drawLine(pair, invalid ? '#ff3048' : '#ffe040', 4);
+    }
+  } else {
+    for (const [x, y] of routeEditorPoints) {
+      const px = m.x + x / 805 * m.w, py = m.y + y / 851 * m.h;
+      c.beginPath(); c.arc(px, py, 6, 0, Math.PI * 2);
+      c.fillStyle = '#ffe040'; c.fill();
+      c.strokeStyle = '#101830'; c.lineWidth = 2; c.stroke();
+    }
   }
   c.restore();
 }
@@ -140,8 +152,9 @@ if (routeEditorEnabled) {
   const panel = document.createElement('section');
   panel.className = 'route-editor-panel';
   panel.innerHTML = `
-    <strong>REITTIEDITORI</strong>
-    <span>Piirrä hiirellä tai sormella kilpailusuuntaan. Rulla zoomaa, oikea painike siirtää. Valkoinen viiva on nykyinen reitti.</span>
+    <strong>KARTTATYÖKALU</strong>
+    <span>Merkitse useita mökkipaikkoja napsauttamalla karttaa. Rulla zoomaa, oikea painike siirtää. Valkoinen viiva on nykyinen reitti.</span>
+    <div><button type="button" data-mode="points" aria-pressed="true">Mökkipaikat</button><button type="button" data-mode="route" aria-pressed="false">Reitti</button></div>
     <label>Turvaväli <select data-action="clearance"><option value="2">Normaali · 2 px</option><option value="1">Kapea · 1 px</option><option value="0">Erittäin kapea · 0 px</option></select></label>
     <textarea aria-label="Piirretyt reittipisteet" readonly></textarea>
     <div><button type="button" data-action="zoom-out">−</button><button type="button" data-action="zoom-in">+</button><button type="button" data-action="fit">Sovita</button></div>
@@ -155,6 +168,19 @@ if (routeEditorEnabled) {
   panel.querySelector('select').style.cssText = 'margin-left:8px;padding:4px;background:#08142c;border:1px solid #92b2d8;color:#fff8d8';
   routeEditorStatus.style.color = '#a9d8ff';
   panel.querySelectorAll('button').forEach(button => button.style.cssText = 'min-height:34px;padding:6px 10px;background:#c84038;border:2px solid #f8f0c0;color:white;font-weight:700;cursor:pointer');
+  panel.querySelectorAll('[data-mode]').forEach(button => button.onclick = () => {
+    routeEditorMode = button.dataset.mode;
+    routeEditorPoints = [];
+    panel.querySelectorAll('[data-mode]').forEach(option => {
+      const selected = option === button;
+      option.setAttribute('aria-pressed', selected);
+      option.style.background = selected ? '#ffe56b' : '#283858';
+      option.style.color = selected ? '#101830' : '#fff';
+    });
+    panel.querySelector('[data-action="clearance"]').closest('label').hidden = routeEditorMode === 'points';
+    routeEditorUpdateOutput();
+  });
+  panel.querySelector('[data-mode="points"]').click();
   routeEditorUpdateOutput();
   panel.querySelector('[data-action="clear"]').onclick = () => {
     routeEditorPoints = [];
@@ -187,7 +213,7 @@ if (routeEditorEnabled) {
       return;
     }
     if (event.button !== 0) return;
-    routeEditorDrawing = true;
+    routeEditorDrawing = routeEditorMode === 'route';
     canvas.setPointerCapture(event.pointerId);
     routeEditorAddPoint(event);
   });
@@ -213,7 +239,7 @@ if (routeEditorEnabled) {
     }
     if (!routeEditorDrawing) return;
     event.preventDefault(); event.stopImmediatePropagation();
-    routeEditorAddPoint(event);
+    if (routeEditorMode === 'route') routeEditorAddPoint(event);
     routeEditorDrawing = false;
   });
   addEventListener('keydown', event => {

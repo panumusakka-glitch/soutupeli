@@ -22,6 +22,13 @@ let retroMapReady = false,
   waterRoute,
   waterRoutePixels,
   waterBranches = [];
+const DISTANCE_MAP_POINTS = {
+  5000: [[.1949, .2105], [.1929, .2075]],
+  10000: [[.1701, .3886], [.1673, .3862]],
+  15000: [[.1907, .6092], [.1876, .6072]],
+  55000: [[.5511, .1549], [.5518, .1499]]
+};
+let distanceMapAnchors = [[0, 0], [TOTAL, 1]];
 const STADIUM_RAW = {x: 395, y: 79};
 // Water immediately in front of Soutustadion; this is both the visible gate
 // and the single official endpoint used by every racer.
@@ -68,7 +75,7 @@ function mapViewport(w, h) {
   }
   if (running && !mapOverview) {
     const scale = Math.min(w, h) / (1000 * routePixels / TOTAL);
-    const p = racerPointOnWater(distance / TOTAL, 805 * scale, 851 * scale, playerRouteChoice);
+    const p = racerPointOnWater(mapProgressForDistance(distance), 805 * scale, 851 * scale, playerRouteChoice);
     return {
       w: 805 * scale,
       h: 851 * scale,
@@ -175,39 +182,50 @@ function waterPath(from, to, clearance = 0) {
     if (current === start) return path.reverse();
   }
 }
-function buildWaterRoute() {
-  // Build a continuous water-only line once. Runtime snapping made the boats
-  // visibly judder, while snapping only the sparse authored nodes let the
-  // straight segments between them cut across land.
+// Permanent movement invariant: every displayed racer path is built as one
+// continuous chain of adjacent water pixels. Never replace this with runtime
+// snapping or straight shortcuts between sparse route points: both make boats
+// jump, and the latter can carry them across islands.
+function continuousWaterRoute(points) {
   const denseRoute = [];
-  for (let i = 1; i < route.length; i++) {
-    const from = [route[i - 1][0] * 805, route[i - 1][1] * 851],
-      to = [route[i][0] * 805, route[i][1] * 851],
-      clearance = Math.min(route[i - 1][2] ?? 2, route[i][2] ?? 2),
+  for (let i = 1; i < points.length; i++) {
+    const from = [points[i - 1][0] * 805, points[i - 1][1] * 851],
+      to = [points[i][0] * 805, points[i][1] * 851],
+      clearance = Math.min(points[i - 1][2] ?? 2, points[i][2] ?? 2),
       steps = Math.max(1, Math.ceil(Math.hypot(to[0] - from[0], to[1] - from[1])));
     for (let step = i === 1 ? 0 : 1; step <= steps; step++) {
-      const t = step / steps;
-      const waterPoint = nearestWaterPoint(
-        Math.round(from[0] + (to[0] - from[0]) * t),
-        Math.round(from[1] + (to[1] - from[1]) * t),
-        clearance,
-        24
-      );
+      const t = step / steps,
+        waterPoint = nearestWaterPoint(
+          Math.round(from[0] + (to[0] - from[0]) * t),
+          Math.round(from[1] + (to[1] - from[1]) * t),
+          clearance,
+          24
+        );
       denseRoute.push([...waterPoint, clearance]);
     }
   }
-  waterRoute = [denseRoute[0]];
+  const result = denseRoute.length ? [denseRoute[0]] : [];
   for (let i = 1; i < denseRoute.length; i++) {
-    const previous = waterRoute.at(-1),
-      next = denseRoute[i];
+    const previous = result.at(-1), next = denseRoute[i];
     if (previous[0] === next[0] && previous[1] === next[1]) continue;
     const dx = Math.abs(next[0] - previous[0]),
       dy = Math.abs(next[1] - previous[1]),
       clearance = Math.min(previous[2] ?? 2, next[2] ?? 2),
       diagonalIsClear = !dx || !dy || (hasWaterClearance(next[0], previous[1], clearance) && hasWaterClearance(previous[0], next[1], clearance));
-    if (dx <= 1 && dy <= 1 && diagonalIsClear) waterRoute.push(next);
-    else waterRoute.push(...(waterPath(previous, next, clearance) || [previous, next]).slice(1).map(point => [point[0], point[1], clearance]));
+    if (dx <= 1 && dy <= 1 && diagonalIsClear) result.push(next);
+    else {
+      const connectingPath = waterPath(previous, next, clearance) || waterPath(previous, next, 0);
+      if (!connectingPath) throw new Error('Soutureitti ei ole yhtenäinen vesireitti.');
+      result.push(...connectingPath.slice(1).map(point => [point[0], point[1], clearance]));
+    }
   }
+  return result;
+}
+function buildWaterRoute() {
+  // Build a continuous water-only line once. Runtime snapping made the boats
+  // visibly judder, while snapping only the sparse authored nodes let the
+  // straight segments between them cut across land.
+  waterRoute = continuousWaterRoute(route);
   let finishIndex = 1, finishDistance = Infinity;
   for (let i = 1; i < waterRoute.length; i++) {
     const candidateDistance = Math.hypot(waterRoute[i][0] - OFFICIAL_FINISH_RAW.x, waterRoute[i][1] - OFFICIAL_FINISH_RAW.y);
@@ -218,7 +236,47 @@ function buildWaterRoute() {
   }
   waterRoute = waterRoute.slice(0, finishIndex + 1);
   waterRoutePixels = waterRoute.slice(1).reduce((sum, point, i) => sum + Math.hypot(point[0] - waterRoute[i][0], point[1] - waterRoute[i][1]), 0);
+  buildDistanceMapAnchors();
   buildWaterBranches();
+  calibrateKietavalaFerryDistance();
+}
+function waterRouteProgressAt(rawX, rawY) {
+  let travelled = 0, nearestProgress = 0, nearestDistance = Infinity;
+  for (let i = 1; i < waterRoute.length; i++) {
+    const a = waterRoute[i - 1], b = waterRoute[i], dx = b[0] - a[0], dy = b[1] - a[1];
+    const length = Math.hypot(dx, dy);
+    const t = length ? clamp(((rawX - a[0]) * dx + (rawY - a[1]) * dy) / (length * length)) : 0;
+    const x = a[0] + dx * t, y = a[1] + dy * t;
+    const separation = Math.hypot(rawX - x, rawY - y);
+    if (separation < nearestDistance) {
+      nearestDistance = separation;
+      nearestProgress = (travelled + length * t) / waterRoutePixels;
+    }
+    travelled += length;
+  }
+  return nearestProgress;
+}
+function buildDistanceMapAnchors() {
+  distanceMapAnchors = [[0, 0], ...Object.entries(DISTANCE_MAP_POINTS).map(([metres, [a, b]]) => [
+    Number(metres),
+    waterRouteProgressAt((a[0] + b[0]) / 2 * 805, (a[1] + b[1]) / 2 * 851)
+  ]), [TOTAL, 1]].sort((a, b) => a[0] - b[0]);
+}
+function mapProgressForDistance(metres) {
+  const value = clamp(metres / TOTAL) * TOTAL;
+  for (let i = 1; i < distanceMapAnchors.length; i++) {
+    const from = distanceMapAnchors[i - 1], to = distanceMapAnchors[i];
+    if (value <= to[0]) return from[1] + (to[1] - from[1]) * (value - from[0]) / (to[0] - from[0]);
+  }
+  return 1;
+}
+function distanceForMapProgress(progress) {
+  const value = clamp(progress);
+  for (let i = 1; i < distanceMapAnchors.length; i++) {
+    const from = distanceMapAnchors[i - 1], to = distanceMapAnchors[i];
+    if (value <= to[1]) return from[0] + (to[0] - from[0]) * (value - from[1]) / (to[1] - from[1]);
+  }
+  return TOTAL;
 }
 function nearestWaterRouteIndex(point) {
   let bestIndex = 0, bestDistance = Infinity;
@@ -240,7 +298,11 @@ function buildWaterBranches() {
       ...branch,
       from: before / waterRoutePixels,
       to: (before + through) / waterRoutePixels,
-      path: [waterRoute[startIndex].slice(0, 2), ...branch.alternative.slice(1, -1).map(point => [point[0] * 805, point[1] * 851]), waterRoute[endIndex].slice(0, 2)]
+      path: continuousWaterRoute([
+        [waterRoute[startIndex][0] / 805, waterRoute[startIndex][1] / 851, waterRoute[startIndex][2]],
+        ...branch.alternative.slice(1, -1),
+        [waterRoute[endIndex][0] / 805, waterRoute[endIndex][1] / 851, waterRoute[endIndex][2]]
+      ]).map(point => point.slice(0, 2))
     };
   });
 }
@@ -250,9 +312,11 @@ function pointOnRawPath(path, progress, w, h) {
   let target = clamp(progress) * total;
   for (let i = 0; i < lengths.length; i++) {
     if (target <= lengths[i]) {
-      const a = path[i], b = path[i + 1], t = target / lengths[i];
+      const a = path[i], b = path[i + 1], t = target / lengths[i],
+        tangentFrom = path[Math.max(0, i - 6)],
+        tangentTo = path[Math.min(path.length - 1, i + 7)];
       return {x: (a[0] + (b[0] - a[0]) * t) / 805 * w, y: (a[1] + (b[1] - a[1]) * t) / 851 * h,
-        angle: Math.atan2((b[1] - a[1]) / 851 * h, (b[0] - a[0]) / 805 * w)};
+        angle: Math.atan2((tangentTo[1] - tangentFrom[1]) / 851 * h, (tangentTo[0] - tangentFrom[0]) / 805 * w)};
     }
     target -= lengths[i];
   }
@@ -261,6 +325,9 @@ function pointOnRawPath(path, progress, w, h) {
     angle: Math.atan2((end[1] - before[1]) / 851 * h, (end[0] - before[0]) / 805 * w)};
 }
 function racerPointOnWater(progress, w, h, choice = 'primary') {
+  // The map and boats are not drawn before this fallback is replaced by the
+  // validated water route, so no unvalidated position is ever shown.
+  if (!waterRoutePixels) return pointOnRoute(clamp(progress), w, h);
   const branch = choice === 'alternative' && waterBranches.find(candidate => progress >= candidate.from && progress <= candidate.to);
   return branch ? pointOnRawPath(branch.path, (progress - branch.from) / (branch.to - branch.from), w, h) : botPointOnWater(progress, w, h);
 }
@@ -297,21 +364,28 @@ function botPointOnWater(progress, w, h) {
  */
 function availableLaneFraction(point, sideways) {
   const offsetX = -Math.sin(point.angle) * sideways, offsetY = Math.cos(point.angle) * sideways;
-  if (hasWaterClearance(Math.round(point.x + offsetX), Math.round(point.y + offsetY), 2)) return 1;
-  let low = 0, high = 1;
-  for (let i = 0; i < 8; i++) {
-    const middle = (low + high) / 2;
-    if (hasWaterClearance(Math.round(point.x + offsetX * middle), Math.round(point.y + offsetY * middle), 2)) low = middle;
-    else high = middle;
+  const steps = Math.max(1, Math.ceil(Math.abs(sideways) * 2));
+  let safeFraction = 0;
+  // Check the whole corridor from the route to the requested lane. Checking
+  // only the end point allowed a racer to jump over a strip of land to water
+  // on the other side of an island.
+  for (let step = 1; step <= steps; step++) {
+    const fraction = step / steps;
+    if (!hasWaterClearance(
+      Math.round(point.x + offsetX * fraction),
+      Math.round(point.y + offsetY * fraction),
+      3
+    )) break;
+    safeFraction = fraction;
   }
-  return low;
+  return safeFraction;
 }
 function anticipatedLaneFraction(racerDistance, sideways, routeChoice) {
   const lookAhead = 700, step = 100;
   let fraction = 1;
   for (let ahead = 0; ahead <= lookAhead; ahead += step) {
     const futureDistance = Math.min(TOTAL, racerDistance + ahead),
-      point = racerPointOnWater(futureDistance / TOTAL, 805, 851, routeChoice),
+      point = racerPointOnWater(mapProgressForDistance(futureDistance), 805, 851, routeChoice),
       available = availableLaneFraction(point, sideways),
       urgency = 1 - ahead / (lookAhead + step);
     fraction = Math.min(fraction, 1 - (1 - available) * urgency);
@@ -319,7 +393,7 @@ function anticipatedLaneFraction(racerDistance, sideways, routeChoice) {
   return fraction;
 }
 function formationPoint(racerDistance, racerIndex, racerCount, racerLane, m, routeChoice = 'primary') {
-  const release = clamp(racerDistance / 140), p = racerPointOnWater(racerDistance / TOTAL, 805, 851, routeChoice);
+  const release = clamp(racerDistance / 140), p = racerPointOnWater(mapProgressForDistance(racerDistance), 805, 851, routeChoice);
   const columns = 5;
   const column = racerIndex % columns - (columns - 1) / 2;
   const finishMerge = clamp((TOTAL - racerDistance) / 300);
@@ -328,7 +402,7 @@ function formationPoint(racerDistance, racerIndex, racerCount, racerLane, m, rou
     offsetX = -Math.sin(p.angle) * sideways * laneFraction,
     offsetY = Math.cos(p.angle) * sideways * laneFraction,
     tangentDistance = Math.min(TOTAL, racerDistance + 35),
-    tangent = racerPointOnWater(tangentDistance / TOTAL, 805, 851, routeChoice),
+    tangent = racerPointOnWater(mapProgressForDistance(tangentDistance), 805, 851, routeChoice),
     tangentSideways = (column * (1 - clamp(tangentDistance / 140)) + racerLane * clamp(tangentDistance / 140)) * 4.5 * clamp((TOTAL - tangentDistance) / 300),
     tangentFraction = anticipatedLaneFraction(tangentDistance, tangentSideways, routeChoice),
     tangentX = tangent.x - Math.sin(tangent.angle) * tangentSideways * tangentFraction,
@@ -341,6 +415,46 @@ function formationPoint(racerDistance, racerIndex, racerCount, racerLane, m, rou
     y: (p.y + offsetY * laneFraction) / 851 * m.h,
     angle
   };
+}
+const DISTANCE_BUOYS = [5000, 10000, 15000, 20000, 25000, 29000, 30000, 35000, 40000, 45000, 50000, 55000];
+function distanceBuoyPoints(buoyDistance) {
+  if (DISTANCE_MAP_POINTS[buoyDistance]) {
+    const [a, b] = DISTANCE_MAP_POINTS[buoyDistance];
+    return [{x: (a[0] + b[0]) / 2 * 805, y: (a[1] + b[1]) / 2 * 851}];
+  }
+  const p = botPointOnWater(mapProgressForDistance(buoyDistance), 805, 851);
+  const [x, y] = nearestWaterPoint(Math.round(p.x), Math.round(p.y), 0, 4);
+  return [{x, y}];
+}
+function drawDistanceBuoys(m) {
+  const c = displayCtx;
+  c.save();
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  for (const buoyDistance of DISTANCE_BUOYS) {
+    const halfway = buoyDistance === 29000;
+    const label = halfway ? 'PUOLIVÄLI' : `${buoyDistance / 1000}km`;
+    const height = halfway ? 30 : 24;
+    const halfWidth = halfway ? 34 : 18;
+    for (const point of distanceBuoyPoints(buoyDistance)) {
+      const x = m.x + point.x / 805 * m.w;
+      const y = m.y + point.y / 851 * m.h - (buoyDistance === 25000 ? height : 0);
+      c.fillStyle = halfway ? '#f8d848' : '#fff';
+      c.strokeStyle = '#17213c';
+      c.lineWidth = 1.5;
+      c.beginPath();
+      c.moveTo(x, y - height / 2);
+      c.lineTo(x - halfWidth, y + height / 2);
+      c.lineTo(x + halfWidth, y + height / 2);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      c.fillStyle = '#17213c';
+      c.font = `700 ${halfway ? 9 : 10}px monospace`;
+      c.fillText(label, x, y + height * .2);
+    }
+  }
+  c.restore();
 }
 function drawFinishMarker(m) {
   const p = botPointOnWater(1, m.w, m.h);
@@ -433,12 +547,31 @@ function drawSafetyFlag(m, progress) {
   c.fillText('OP', 6.5, -20.25);
   c.restore();
 }
-const KIETAVALA_FERRY_DISTANCE = 27900;
-// Keep the map sprites apart as well as their route positions. At this map's
-// scale 55 metres is only about two pixels, much less than either vessel.
-const KIETAVALA_FERRY_CLEARANCE = 500;
-const KIETAVALA_FERRY_STOP_DISTANCE = KIETAVALA_FERRY_DISTANCE - KIETAVALA_FERRY_CLEARANCE;
 const KIETAVALA_FERRY_DOCKS = [{x: 379, y: 746}, {x: 378, y: 774}];
+const KIETAVALA_FERRY_CLEARANCE = 90;
+let KIETAVALA_FERRY_DISTANCE = 27350;
+let KIETAVALA_FERRY_STOP_DISTANCE = KIETAVALA_FERRY_DISTANCE - KIETAVALA_FERRY_CLEARANCE;
+function calibrateKietavalaFerryDistance() {
+  if (!waterRoute?.length || !waterRoutePixels) return;
+  const midpoint = {
+    x: (KIETAVALA_FERRY_DOCKS[0].x + KIETAVALA_FERRY_DOCKS[1].x) / 2,
+    y: (KIETAVALA_FERRY_DOCKS[0].y + KIETAVALA_FERRY_DOCKS[1].y) / 2
+  };
+  let travelled = 0, crossingTravel = 0, nearest = Infinity;
+  for (let i = 1; i < waterRoute.length; i++) {
+    travelled += Math.hypot(
+      waterRoute[i][0] - waterRoute[i - 1][0],
+      waterRoute[i][1] - waterRoute[i - 1][1]
+    );
+    const separation = Math.hypot(waterRoute[i][0] - midpoint.x, waterRoute[i][1] - midpoint.y);
+    if (separation < nearest) {
+      nearest = separation;
+      crossingTravel = travelled;
+    }
+  }
+  KIETAVALA_FERRY_DISTANCE = distanceForMapProgress(crossingTravel / waterRoutePixels);
+  KIETAVALA_FERRY_STOP_DISTANCE = KIETAVALA_FERRY_DISTANCE - KIETAVALA_FERRY_CLEARANCE;
+}
 function kietavalaFerryState(w, h) {
   return {crossing: ferryProgress * 2 - 1};
 }
@@ -508,7 +641,7 @@ function ambulanceProgress() {
   return clamp((target - 140) / TOTAL, 0, 1);
 }
 function drawAmbulanceBoat(m, now) {
-  const p = botPointOnWater(ambulanceProgress(), m.w, m.h), c = ctx;
+  const p = botPointOnWater(mapProgressForDistance(ambulanceProgress() * TOTAL), m.w, m.h), c = ctx;
   c.save();
   c.translate(m.x + p.x, m.y + p.y);
   c.rotate(p.angle + Math.PI / 2);
@@ -535,7 +668,7 @@ function drawSafetyLabels(m) {
     ...patrols.map(([base, phase]) => [patrolProgress(base, phase, performance.now()), 'VALVONTA']),
     [ambulanceProgress(), 'AMBULANSSI']
   ]) {
-    const p = botPointOnWater(progress, m.w, m.h);
+    const p = botPointOnWater(label === 'AMBULANSSI' ? mapProgressForDistance(progress * TOTAL) : progress, m.w, m.h);
     c.fillStyle = '#17213c';
     c.fillRect(m.x + p.x - 25, m.y + p.y - 25, 50, 11);
     c.fillStyle = '#fff8d8';
@@ -543,34 +676,143 @@ function drawSafetyLabels(m) {
   }
   c.restore();
 }
+const HIRVINIEMI_CROWD_AREA = [
+  [.5267, .8976], [.5304, .8974], [.5342, .8972], [.5380, .8972],
+  [.5418, .8973], [.5456, .8972], [.5493, .8969], [.5500, .8935],
+  [.5497, .8899], [.5499, .8863], [.5469, .8843], [.5431, .8840],
+  [.5393, .8839], [.5355, .8839]
+];
+const SHORE_CABINS = [
+  [.3089, .2304], [.1948, .2145], [.1363, .2611], [.1397, .3159],
+  [.1720, .3563], [.1631, .2918], [.1713, .4414], [.1890, .4814],
+  [.1941, .5274], [.1964, .5881], [.1744, .7445], [.1669, .7780],
+  [.2049, .7912], [.2590, .8743], [.2134, .8362], [.3285, .9023],
+  [.3529, .9341], [.4013, .8954], [.4557, .9165], [.4813, .9071],
+  [.6982, .8614], [.6686, .8640], [.6212, .8643], [.7554, .8513],
+  [.7590, .8773], [.8210, .8254], [.7817, .7507], [.7877, .7288],
+  [.7890, .7163], [.8077, .6769], [.7965, .6373], [.7850, .6159],
+  [.7397, .5111], [.7400, .4327], [.7236, .4086], [.7435, .4205],
+  [.7074, .3543], [.7007, .3339], [.6930, .3203], [.6876, .2850],
+  [.6828, .2799], [.6661, .2772], [.6479, .2807], [.6295, .2759],
+  [.6157, .2847], [.5981, .2656], [.6253, .2633], [.6442, .2643],
+  [.5549, .2588], [.5549, .2479], [.5562, .2371], [.5600, .2199],
+  [.5371, .2175], [.5247, .2078], [.5238, .1932], [.5281, .1747],
+  [.5387, .1615], [.5366, .1362], [.5283, .1276], [.5203, .1190],
+  [.5126, .1122], [.5060, .1047], [.5001, .0994], [.5710, .1626],
+  [.5768, .1563], [.5585, .1884], [.5611, .1995], [.5582, .1725],
+  [.1706, .3218], [.2551, .2304], [.3437, .2163], [.3829, .2296],
+  [.3834, .2465]
+];
+function shoreCabinRandom(index, salt = 0) {
+  let value = Math.imul(index + 1, 1103515245) + Math.imul(salt + 17, 12345);
+  value ^= value >>> 16;
+  return (value >>> 0) / 4294967296;
+}
+function shoreCabinSpectatorCount(index) {
+  const value = shoreCabinRandom(index);
+  if (value < .18) return 0;
+  if (value < .53) return 1;
+  if (value < .83) return 2;
+  if (value < .96) return 3;
+  return 5;
+}
+function drawShoreCabin(c, x, y, size, wallColor) {
+  c.fillStyle = 'rgba(9,18,35,.25)';
+  c.fillRect(x - size * .9, y + size * 1.25, size * 2.2, size * .45);
+  c.fillStyle = wallColor;
+  c.fillRect(x - size, y, size * 2, size * 1.45);
+  c.fillStyle = '#f8d848';
+  c.fillRect(x - size * .62, y + size * .35, size * .48, size * .5);
+  c.fillStyle = '#5b3428';
+  c.fillRect(x + size * .28, y + size * .45, size * .45, size);
+  c.fillStyle = '#17213c';
+  c.beginPath();
+  c.moveTo(x - size * 1.3, y); c.lineTo(x, y - size); c.lineTo(x + size * 1.3, y); c.closePath();
+  c.fill();
+  c.fillStyle = '#d8d0b0';
+  c.fillRect(x + size * .55, y - size * .72, size * .28, size * .72);
+}
+function drawShoreSpectator(c, x, y, size, color, now, index) {
+  const bodyWidth = size * 1.7,
+    bodyHeight = size * 2.15,
+    clap = Math.sin(now * .016 + index) > .2 ? 1.55 : .25;
+  c.fillStyle = 'rgba(9,18,35,.25)';
+  c.beginPath(); c.ellipse(x + size * .18, y + size * 1.7, bodyWidth * .8, size * .42, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = color;
+  c.beginPath(); c.roundRect(x - bodyWidth / 2, y - size * .1, bodyWidth, bodyHeight, size * .45); c.fill();
+  c.fillStyle = '#e8b080';
+  c.beginPath(); c.arc(x, y - size * 1.05, size * .72, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = '#e8b080';
+  c.lineWidth = Math.max(1, size * .38);
+  c.lineCap = 'round';
+  c.beginPath();
+  c.moveTo(x - bodyWidth * .42, y + size * .4); c.lineTo(x - size * 1.55, y - size * clap);
+  c.moveTo(x + bodyWidth * .42, y + size * .4); c.lineTo(x + size * 1.55, y - size * clap);
+  c.moveTo(x - size * .34, y + bodyHeight); c.lineTo(x - size * .58, y + bodyHeight + size * .75);
+  c.moveTo(x + size * .34, y + bodyHeight); c.lineTo(x + size * .58, y + bodyHeight + size * .75);
+  c.stroke();
+}
+function drawShoreLife(m, now) {
+  const c = displayCtx;
+  const scale = clamp(m.w / 805, .55, 1.15);
+  const cabinSize = 9 * scale;
+  // Match the people on the Hakovirta starting bridge.
+  const spectatorSize = .38 * scale;
+  const colors = ['#d84838', '#f8d848', '#3888d8', '#f0e8d0', '#c068a0', '#48a878'];
+  c.save();
+  for (let i = 0; i < SHORE_CABINS.length; i++) {
+    const [mapX, mapY] = SHORE_CABINS[i];
+    drawShoreCabin(c, m.x + mapX * m.w, m.y + mapY * m.h, cabinSize, i % 2 ? '#d47438' : '#b94738');
+  }
+  let spectatorIndex = 0;
+  for (let cabinIndex = 0; cabinIndex < SHORE_CABINS.length; cabinIndex++) {
+    const [mapX, mapY] = SHORE_CABINS[cabinIndex],
+      count = shoreCabinSpectatorCount(cabinIndex),
+      side = shoreCabinRandom(cabinIndex, 1) < .5 ? -1 : 1,
+      spectatorWidth = spectatorSize * 3.1;
+    for (let person = 0; person < count; person++) {
+      // The nearest person leaves a gap equal to half a person's width.
+      const offset = side * (cabinSize * 1.3 + spectatorWidth * (1 + person * 1.15)),
+        x = m.x + mapX * m.w + offset,
+        y = m.y + mapY * m.h + cabinSize * (1.05 + (person % 2) * .16);
+      drawShoreSpectator(c, x, y, spectatorSize, colors[spectatorIndex % colors.length], now, spectatorIndex);
+      spectatorIndex++;
+    }
+  }
+  c.restore();
+}
+const HIRVINIEMI_CROWD_POINTS = [
+  [.5305, .8956], [.5350, .8957], [.5395, .8956], [.5440, .8956], [.5480, .8952],
+  [.5330, .8914], [.5375, .8915], [.5420, .8914], [.5468, .8912],
+  [.5365, .8870], [.5415, .8870], [.5465, .8870]
+];
+function hirviniemiClap(now, spectatorIndex) {
+  return Math.abs(Math.sin(now * .012 + spectatorIndex * .9));
+}
 function drawHirviniemiCrowd(m, now) {
-  // Keep this tied to the actual rounding point so it stays in view when the
-  // camera follows the boats through Hirviniemi.
   const c = displayCtx;
   const scale = clamp(m.w / 805, .55, 1.1);
-  const routePoint = botPointOnWater(26500 / TOTAL, m.w, m.h);
-  // Hirviniemen kannustuspaikka is on the north shore, not alongside the
-  // racing line in open water.
-  const baseX = m.x + routePoint.x;
-  const baseY = m.y + routePoint.y - 42 * (m.h / 851);
   const colors = ['#d84838', '#f8d848', '#3888d8', '#f0e8d0', '#c068a0', '#48a878'];
   c.save();
   c.fillStyle = '#17213c';
-  c.font = '700 7px monospace';
+  c.font = '700 21px monospace';
   c.textAlign = 'center';
   c.textBaseline = 'bottom';
-  c.fillText('Hirviniemi', baseX, baseY - 8 * scale);
-  for (let i = 0; i < 11; i++) {
-    const x = baseX + ((i % 6) - 2.5) * 5.2 * scale + (i > 5 ? 2.5 * scale : 0);
-    const y = baseY + (Math.floor(i / 6) * 6 + (i % 2) * 1.5) * scale;
-    const size = 2.3 * scale;
-    const cheer = .35 + .65 * Math.max(0, Math.sin(now * .008 + i * 1.7));
+  c.fillText('Hirviniemi', m.x + .542 * m.w, m.y + .8835 * m.h);
+  for (let i = 0; i < HIRVINIEMI_CROWD_POINTS.length; i++) {
+    const [mapX, mapY] = HIRVINIEMI_CROWD_POINTS[i];
+    const x = m.x + mapX * m.w;
+    const y = m.y + mapY * m.h;
+    const size = 2.3 * scale * 3;
+    const clapOpen = hirviniemiClap(now, i);
+    const handX = size * (.12 + 1.38 * clapOpen);
+    const handY = y - size * (.15 + .15 * clapOpen);
     c.fillStyle = 'rgba(9,18,35,.3)';
     c.beginPath(); c.ellipse(x, y + size * 2.7, size * .9, size * .35, 0, 0, Math.PI * 2); c.fill();
     c.fillStyle = colors[i % colors.length]; c.fillRect(x - size, y, size * 2, size * 2.3);
     c.fillStyle = '#e8b080'; c.beginPath(); c.arc(x, y - size * .8, size * .75, 0, Math.PI * 2); c.fill();
     c.strokeStyle = '#e8b080'; c.lineWidth = Math.max(1, size * .32); c.lineCap = 'round';
-    c.beginPath(); c.moveTo(x - size * .7, y + size); c.lineTo(x - size * 1.5, y - size * cheer); c.moveTo(x + size * .7, y + size); c.lineTo(x + size * 1.5, y - size * cheer); c.stroke();
+    c.beginPath(); c.moveTo(x - size * .7, y + size); c.lineTo(x - handX, handY); c.moveTo(x + size * .7, y + size); c.lineTo(x + handX, handY); c.stroke();
   }
   c.restore();
 }
@@ -601,6 +843,7 @@ function draw(now) {
   }
   displayCtx.clearRect(0, 0, w, h);
   displayCtx.drawImage(pixelScene, 0, 0, w, h);
+  if (retroMapReady && running && !mapOverview) drawShoreLife(m, now);
   if (retroMapReady && running) {
     for (const [base, phase] of [[.16, 0], [.48, 2.1], [.78, 4.2]]) drawSafetyFlag(m, patrolProgress(base, phase, now));
   }
@@ -613,6 +856,7 @@ function draw(now) {
     const p = formationPoint(distance, 0, botRacers.length + 1, 0, m, playerRouteChoice);
     p.x += m.x;
     p.y += m.y;
+    drawDistanceBuoys(m);
     drawMapLabels(m, w, h, p);
     drawSafetyLabels(m);
     drawHirviniemiCrowd(m, now);

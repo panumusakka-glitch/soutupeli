@@ -42,6 +42,20 @@ Nykyinen pääreitti, reittihaarat, turvavälit ja kapeikkojen ennakoiva
 lähestyminen ovat käyttäjän visuaalisesti hyväksymiä. Älä muuta niitä
 ilman käyttäjän nimenomaista pyyntöä.
 
+## Suojattu vesiliikenne
+
+Nykyinen soutajien vesireitti- ja kaistansiirtotoiminta on käyttäjän testaama
+ja hyväksymä. Soutajien näytettävän reitin täytyy säilyä yhtenäisenä
+vesipikseliketjuna. Kaistansiirrossa tarkistetaan koko käytävä keskireitiltä
+tavoitekaistalle kolmen karttapikselin turvavälillä; pelkän päätepisteen
+tarkistaminen voi palauttaa teleporttaukset ja saarten läpi ajamisen.
+Lepistönselän vaihtoehtoreitin yhden pikselin turvaväli on tarkoituksellinen.
+Älä muuta `continuousWaterRoute`-, `availableLaneFraction`-,
+`anticipatedLaneFraction`- tai `formationPoint`-toimintaa taikka reittihaarojen
+turvavälejä, ellei se ole aivan välttämätöntä tai käyttäjä pyydä sitä
+nimenomaisesti. Jos muutos on välttämätön, säilytä samat invariantit ja pidä
+niitä suojaavat smoke-testit käytössä.
+
 ## Yhteiset pelisäännöt
 
 - `dist/js/state.js` sisältää yhteisen muuttuvan pelitilan. Alkuarvot ovat configissa; eväsvarasto muodostetaan foods-datasta. Älä kopioi dataa UI:hin.

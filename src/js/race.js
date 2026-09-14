@@ -808,6 +808,8 @@ function update(dt, now) {
     wind: !!s.wind,
     quality,
     totalKm: TOTAL / 1000,
+    distance,
+    bots: botRacers.map(bot => ({name: bot.rower.name, distance: bot.distance})),
     freshness,
     energy,
     hydration,

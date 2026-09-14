@@ -1,7 +1,7 @@
 // One serving per click. Fluid in litres, carbs and sodium in grams / milligrams.
 const foods = {
   "gel": {
-    "name": "Energiageeli",
+    "name": "Dexal",
     "carbs": 25,
     "fluid": 0,
     "sodium": 50,
@@ -37,7 +37,7 @@ const foods = {
     "unit": "drink"
   },
   "sportsdrink": {
-    "name": "Urheilujuoma",
+    "name": "Hart Sport",
     "carbs": 12,
     "fluid": 0.2,
     "sodium": 120,
