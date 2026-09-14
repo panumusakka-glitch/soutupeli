@@ -36,6 +36,7 @@ let {
   gutSodium,
   gutStress,
   digestionLoad,
+  gutFood,
   alcoholLoad,
   nicotineLoad,
   wPrime,
@@ -48,12 +49,18 @@ let {
 } = INITIAL_BODY;
 let activeInput = null,
   activeSurface = null;
+let intakeUntil = 0,
+  intakeStartedAt = 0,
+  intakePowerFactor = 1,
+  intakeKey = null,
+  intakeMessage = '';
 let selectedProvisionPack = '',
   inventory = initialInventory(selectedProvisionPack);
 let rower = rowers.find(r => r.name === DEFAULT_CREW.rower),
   selectedBoat = boats.find(b => b.name === DEFAULT_CREW.boat),
   material = DEFAULT_CREW.material;
 let botRacers = [];
+let playerRouteChoice = 'primary';
 let raceDay = null;
 let recordEligible = false;
 function newRaceStats() {

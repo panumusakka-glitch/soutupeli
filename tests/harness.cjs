@@ -33,7 +33,7 @@ function createGame(directory = root, legacy = false, location = {hostname:'exam
     performance:{now:()=>1000},devicePixelRatio:2,addEventListener:(k,f)=>listeners[k]=f,requestAnimationFrame:noop,navigator:{},location,confirm:()=>true};
   vm.createContext(box);
   const scripts=legacy?['chatter.js','game.js']:[...html.matchAll(/<script src="([^"]+)"/g)].map(m=>m[1]);
-  for(const src of scripts){const source=fs.readFileSync(path.join(directory,src),'utf8');new vm.Script(source,{filename:src});if(src.endsWith('effects.js'))continue;vm.runInContext(source,box,{filename:src});}
+  for(const src of scripts){const file=src.replace(/[?#].*$/,'');const source=fs.readFileSync(path.join(directory,file),'utf8');new vm.Script(source,{filename:file});if(file.endsWith('effects.js'))continue;vm.runInContext(source,box,{filename:file});}
   return {box,nodes,storage,spoken,listeners,run:s=>vm.runInContext(s,box)};
 }
 module.exports={createGame,root};

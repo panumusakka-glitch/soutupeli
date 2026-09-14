@@ -402,7 +402,7 @@ function drawSafetyBoat(m, progress, now) {
   c.save();
   c.translate(m.x + p.x, m.y + p.y);
   c.rotate(p.angle + Math.PI / 2);
-  // A compact motorboat: yellow rescue hull, cabin, outboard and OP pennant.
+  // A compact motorboat: yellow rescue hull, cabin and outboard.
   c.fillStyle = '#f3d36b';
   c.strokeStyle = '#17213c';
   c.lineWidth = 1.5;
@@ -412,24 +412,32 @@ function drawSafetyBoat(m, progress, now) {
   c.fillStyle = '#e9f6f2'; c.fillRect(-3, -5, 6, 7);
   c.fillStyle = '#38465e'; c.fillRect(-3, 11, 6, 3);
   c.strokeStyle = '#17213c'; c.beginPath(); c.moveTo(0, -8); c.lineTo(0, -25); c.stroke();
-  // Large orange OP flag: the white linked rings and centre bar stay legible
-  // even on the moving, zoomed-out race map.
+  c.restore();
+}
+function drawSafetyFlag(m, progress) {
+  const p = botPointOnWater(progress, m.w, m.h), c = displayCtx;
+  c.save();
+  c.translate(m.x + p.x, m.y + p.y);
+  c.rotate(p.angle + Math.PI / 2);
+  // Draw the small pennant at display resolution so its OP mark stays crisp.
   c.fillStyle = '#ff6200';
+  c.strokeStyle = '#17213c';
+  c.lineWidth = 1;
   c.beginPath();
   c.moveTo(0, -25); c.lineTo(14, -24); c.lineTo(12, -16); c.lineTo(0, -17); c.closePath();
-  c.fill();
-  c.strokeStyle = '#fff';
-  c.lineWidth = 1.25;
-  c.beginPath();
-  c.arc(4, -20.5, 2.25, 0, Math.PI * 2);
-  c.arc(9, -20.2, 2.25, 0, Math.PI * 2);
-  c.stroke();
-  c.lineWidth = 1.5;
-  c.beginPath(); c.moveTo(6.5, -24.2); c.lineTo(6.5, -16.5); c.stroke();
+  c.fill(); c.stroke();
+  c.fillStyle = '#fff';
+  c.font = '700 7px sans-serif';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText('OP', 6.5, -20.25);
   c.restore();
 }
 const KIETAVALA_FERRY_DISTANCE = 27900;
-const KIETAVALA_FERRY_STOP_DISTANCE = KIETAVALA_FERRY_DISTANCE - 55;
+// Keep the map sprites apart as well as their route positions. At this map's
+// scale 55 metres is only about two pixels, much less than either vessel.
+const KIETAVALA_FERRY_CLEARANCE = 500;
+const KIETAVALA_FERRY_STOP_DISTANCE = KIETAVALA_FERRY_DISTANCE - KIETAVALA_FERRY_CLEARANCE;
 const KIETAVALA_FERRY_DOCKS = [{x: 379, y: 746}, {x: 378, y: 774}];
 function kietavalaFerryState(w, h) {
   return {crossing: ferryProgress * 2 - 1};
@@ -440,7 +448,7 @@ function updateKietavalaFerry(dt) {
   const metresPerMapPixel = TOTAL / Math.max(1, waterRoutePixels || 2100);
   const maxPixelsPerSecond = 10 / 3.6 / metresPerMapPixel;
   const nearby = [distance, ...(botRacers || []).map(bot => bot.distance)]
-    .some(racerDistance => Math.abs(racerDistance - KIETAVALA_FERRY_DISTANCE) < 150);
+    .some(racerDistance => Math.abs(racerDistance - KIETAVALA_FERRY_DISTANCE) < KIETAVALA_FERRY_CLEARANCE);
   if (ferryDockWait > 0) {
     ferryDockWait = Math.max(0, ferryDockWait - dt);
     return;
@@ -475,7 +483,7 @@ function drawKietavalaFerry(m) {
   const y = m.y + rawY / 851 * m.h;
   const angle = Math.atan2((dockB.y - dockA.y) * m.h / 851, (dockB.x - dockA.x) * m.w / 805);
   const scale = clamp(m.w / 805, .45, 1.05);
-  const ferryScale = scale * 5;
+  const ferryScale = scale * 2;
   c.save(); c.translate(x, y); c.rotate(angle);
   c.fillStyle = '#17213c'; c.fillRect(-9 * ferryScale, -5 * ferryScale, 18 * ferryScale, 10 * ferryScale);
   c.fillStyle = '#f3d36b'; c.fillRect(-8 * ferryScale, -4 * ferryScale, 16 * ferryScale, 8 * ferryScale);
@@ -524,7 +532,7 @@ function drawSafetyLabels(m) {
   c.textAlign = 'center';
   const patrols = [[.16, 0], [.48, 2.1], [.78, 4.2]];
   for (const [progress, label] of [
-    ...patrols.map(([base, phase]) => [patrolProgress(base, phase, performance.now()), 'OP-VALVONTA']),
+    ...patrols.map(([base, phase]) => [patrolProgress(base, phase, performance.now()), 'VALVONTA']),
     [ambulanceProgress(), 'AMBULANSSI']
   ]) {
     const p = botPointOnWater(progress, m.w, m.h);
@@ -593,6 +601,9 @@ function draw(now) {
   }
   displayCtx.clearRect(0, 0, w, h);
   displayCtx.drawImage(pixelScene, 0, 0, w, h);
+  if (retroMapReady && running) {
+    for (const [base, phase] of [[.16, 0], [.48, 2.1], [.78, 4.2]]) drawSafetyFlag(m, patrolProgress(base, phase, now));
+  }
   if (typeof drawRouteEditorOverlay === 'function') drawRouteEditorOverlay(m, w, h);
   if (retroMapReady && running) {
     for (const [index, bot] of botRacers.entries()) {

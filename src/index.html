@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Sulkavan Suursoutu</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=8">
 </head>
 <body>
   <audio id="menuMusic" preload="auto" loop>
@@ -114,6 +114,7 @@
 
     <section id="provisionsPanel" class="provisions" aria-label="Matkaeväät">
       <button id="closeProvisions" class="text-button" type="button">Sulje eväät</button><div class="provisions-heading"><div><p class="eyebrow">EVÄÄT VENEESSÄ</p><h2>Tankkaa ennen kuin mittarit romahtavat.</h2></div><p id="lastIntake" aria-live="polite">Et ole vielä nauttinut mitään.</p></div>
+      <div id="intakeProgress" class="intake-progress" role="progressbar" aria-label="Nauttimisen eteneminen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><i id="intakeProgressBar"></i></div>
       <div class="provision-grid"></div>
       <p class="physiology-note">Pelimalli arvioi hikoilua, hiilihydraattien imeytymistä, natriumin menetystä ja rasituksen kertymistä. Se on pelillinen simulaatio, ei yksilöllinen ravitsemusohje.</p>
     </section>
@@ -123,9 +124,9 @@
   <script src="data/boats.js"></script>
   <script src="data/foods.js"></script>
   <script src="data/portraits.js"></script>
-  <script src="data/route.js"></script>
+  <script src="data/route.js?v=6"></script>
   <script src="data/dialogue.js"></script>
-  <script src="js/state.js"></script>
+  <script src="js/state.js?v=6"></script>
   <script src="js/ui/hud.js"></script>
   <script src="js/ui/selection.js"></script>
   <script src="js/ui/provisions.js"></script>
@@ -134,12 +135,12 @@
   <script src="js/mechanics.js"></script>
   <script src="js/input.js"></script>
   <script src="js/map/route.js"></script>
-  <script src="js/map/render.js"></script>
-  <script src="js/map/route-editor.js"></script>
+  <script src="js/map/render.js?v=7"></script>
+  <script src="js/map/route-editor.js?v=5"></script>
   <script src="js/map/characters.js"></script>
   <script src="js/map/bridge.js"></script>
-  <script src="js/storage.js"></script>
-  <script src="js/race.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/storage.js?v=6"></script>
+  <script src="js/race.js?v=8"></script>
+  <script src="js/main.js?v=8"></script>
 </body>
 </html>

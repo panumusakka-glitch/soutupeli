@@ -52,6 +52,8 @@ footer{display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:center;ba
  .dashboard,.body-dashboard,footer,#crewLabel,.provisions{display:none}
  .lake-wrap{flex:1;min-height:0;height:auto}
  #startOverlay{padding:10px}.start-logo{width:min(240px,68vw);max-height:22vh;margin-bottom:8px}.selection-panel{padding:12px}.selection-panel h2{font-size:20px}
+ #startOverlay{padding-bottom:max(10px,env(safe-area-inset-bottom))}
+ #startButton{position:sticky;z-index:2;bottom:0;width:min(720px,100%);min-height:52px;box-shadow:0 -8px 18px rgba(5,13,34,.8)}
  .rower-profile{margin-top:8px}.rower-profile img{width:76px;height:76px}
  .race-mode .dashboard{display:grid;flex:none;grid-template-columns:repeat(4,minmax(0,1fr))}
  .race-mode .dashboard>div{padding:5px 6px;min-width:0;border-bottom:0}
@@ -142,6 +144,12 @@ button:focus-visible,select:focus-visible{outline:3px solid #f8d848;outline-offs
 .route-wind{color:#b8c8e0}
 @media(max-width:800px){body:not(.race-mode) .route-status{display:none}.route-status #routeSection{flex-basis:100%}.race-mode #crewLabel{display:none}.leaderboard{top:6px;left:6px;width:min(210px,62%);padding:5px}.leaderboard h2{font-size:11px}.leaderboard li{font-size:10px;grid-template-columns:20px minmax(0,1fr) 43px}.leaderboard li small{font-size:9px}}
 
+@media(max-width:800px) and (orientation:portrait){
+ .race-mode .body-dashboard{display:none}
+ .leaderboard:not(.expanded) li:not(.player){display:none}
+ .leaderboard:not(.expanded){width:min(190px,58%);background:rgba(16,24,48,.62)}
+}
+
 
 #mapToggle{font:inherit;padding:5px 10px;min-height:36px;background:#283858;border:2px solid #f8f0c0;color:#f8f0c0;cursor:pointer}.route-status{align-items:center}
 
@@ -203,4 +211,5 @@ body.start-menu .preview-button:hover{color:#ffe56b;border-color:#ffe56b}
 body.preview-mode::after{content:"ESIKATSELU · 180×";position:fixed;z-index:20;right:12px;bottom:12px;padding:6px 9px;background:#101830;border:2px solid #ffe56b;color:#ffe56b;font:700 12px "Courier New",monospace;box-shadow:3px 3px #080f20;pointer-events:none}
 .preview-controls{display:grid;grid-template-columns:minmax(140px,1fr) auto auto;align-items:end;gap:10px;padding:8px 10px;background:#101830;border:2px solid #ffe56b;box-shadow:3px 3px #080f20;color:#fff8d8;font:700 11px "Courier New",monospace}.preview-controls[hidden]{display:none}.preview-controls label{display:grid;gap:5px}.preview-controls input{width:100%;accent-color:#f8d848}.preview-controls select,.preview-controls button{min-height:30px;padding:4px 9px;background:#101830;border:1px solid #92b2d8;color:#fff8d8;font:inherit}.preview-controls button{cursor:pointer;border-color:#ffe56b}.preview-controls button[aria-pressed="true"]{background:#ffe56b;color:#101830}@media(max-width:520px){.preview-controls{grid-template-columns:1fr auto;gap:7px}.preview-controls label:first-child{grid-column:1/-1}}
 .route-editor-mode .overlay,.route-editor-mode .leaderboard,.route-editor-mode main>.dashboard,.route-editor-mode main>.body-dashboard,.route-editor-mode main>.route-status,.route-editor-mode main>#crewLabel,.route-editor-mode main>footer,.route-editor-mode main>.provisions{display:none!important}.route-editor-mode .lake-wrap{height:100vh;min-height:100vh;border:0}.route-editor-panel{position:absolute;z-index:5;top:12px;right:12px;width:min(330px,calc(100% - 24px));display:grid;gap:8px;padding:12px;background:rgba(16,24,48,.94);border:2px solid #ffe56b;box-shadow:3px 3px #080f20;color:#fff8d8;font:12px "Courier New",monospace}.route-editor-panel strong{color:#ffe56b;font-size:15px}.route-editor-panel textarea{box-sizing:border-box;width:100%;height:110px;resize:vertical;background:#08142c;border:1px solid #92b2d8;color:#fff8d8;font:12px "Courier New",monospace}.route-editor-panel div{display:flex;gap:8px}.route-editor-panel button{min-height:34px;padding:6px 10px;font-size:12px}.route-editor-panel output{color:#a9d8ff}
+.intake-progress{height:10px;margin-top:8px;border:1px solid #92b2d8;background:#080f20;padding:1px}.intake-progress[hidden]{display:none}.intake-progress i{display:block;width:0;height:100%;background:#f8d848;transition:width .12s linear}
 @media(max-width:520px){body.start-menu .resume-panel{padding:20px 14px 16px}body.start-menu .save-slot{grid-template-columns:58px 1fr auto;gap:6px;padding:11px 8px!important}body.start-menu .save-slot span{font-size:11px}}

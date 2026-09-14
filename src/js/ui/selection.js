@@ -7,6 +7,9 @@ function selectCrew() {
   const hasRower = rowerSelect.value !== '';
   const hasBoat = boatSelect.value !== '';
   if (hasRower) rower = rowers[Number(rowerSelect.value)];
+  const seppoPackageOnly = hasRower && rower.name === 'Seppo Räty';
+  if (seppoPackageOnly) provisionPackSelect.value = 'fun';
+  provisionPackSelect.disabled = seppoPackageOnly;
   if (hasRower && Number.isFinite(rower.racePower)) strokePower = rower.racePower;
   ui.power.disabled = hasRower && Number.isFinite(rower.racePower);
   if (hasBoat) selectedBoat = boats[Number(boatSelect.value)];

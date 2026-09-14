@@ -57,6 +57,7 @@ function setMeter(kind, value, hint) {
   ui[`${kind}Hint`].textContent = hint;
 }
 function updateUI(now = performance.now()) {
+  updateInventory();
   updateCrampUI();
   updateLeaderboard();
   ui.speed.textContent = speed.toFixed(1).replace('.', ',');

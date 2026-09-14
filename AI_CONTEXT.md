@@ -36,6 +36,12 @@ Tavallinen HTML/CSS/JavaScript + Canvas; ei npm-riippuvuuksia eikä build-vaihet
 - Reittivalinnoissa saa olla luontevaa variaatiota, mutta soutajat eivät saa tehdä tarpeettomia kiertoteitä tai käydä lahden pohjukoissa ilman reitin vaatimaa syytä.
 - Kiertotie tehdään vain törmäyksen välttämiseksi tai todellisen kulkuesteen takia. Ahtaissa salmissa soutajat saavat kulkea tavallista tiiviimmin, jotta väistäminen ei aiheuta epärealistisia mutkia.
 
+## Suojattu reitti
+
+Nykyinen pääreitti, reittihaarat, turvavälit ja kapeikkojen ennakoiva
+lähestyminen ovat käyttäjän visuaalisesti hyväksymiä. Älä muuta niitä
+ilman käyttäjän nimenomaista pyyntöä.
+
 ## Yhteiset pelisäännöt
 
 - `dist/js/state.js` sisältää yhteisen muuttuvan pelitilan. Alkuarvot ovat configissa; eväsvarasto muodostetaan foods-datasta. Älä kopioi dataa UI:hin.

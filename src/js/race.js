@@ -21,6 +21,7 @@ function reset() {
   ferryDirection = 1;
   ferryDockWait = 8;
   distance = START_GRID_DISTANCE;
+  playerRouteChoice = 'primary';
   resetBotRacers();
   strokeTimes = [];
   lastDrive = lastRecovery = 0;
@@ -41,6 +42,7 @@ function reset() {
     gutSodium,
     gutStress,
     digestionLoad,
+    gutFood,
     alcoholLoad,
     nicotineLoad,
     wPrime,
@@ -51,6 +53,11 @@ function reset() {
     blisters,
     cramps
   } = INITIAL_BODY);
+  intakeUntil = 0;
+  intakeStartedAt = 0;
+  intakePowerFactor = 1;
+  intakeKey = null;
+  intakeMessage = '';
 
   rowerSelect.disabled =
     boatSelect.disabled =
@@ -77,6 +84,9 @@ const START_GRID_DISTANCE = 12;
 const START_GRID_ROW_GAP = 4;
 const PREVIEW_RACE_SECONDS = 5 * 3600;
 const RACE_TACTICS = new Set(['aggressive', 'conservative', 'sprint', 'steady']);
+function randomPlayerRouteChoice() {
+  return Math.random() < .95 ? 'primary' : 'alternative';
+}
 const RACE_WEATHERS = {
   record: {label: 'Pläkkityyni · 20 °C · pilvipouta', heat: .92, windIntensity: .05, windStrain: .76, strain: .94, speedFactor: 1.025},
   calm: {label: 'Tyyni · 17 °C · puolipilvistä', heat: .98, windIntensity: .55, windStrain: .90, strain: .98, speedFactor: 1.01},
@@ -114,6 +124,7 @@ function resetBotRacers() {
       lane: initialRaceLane(index),
       laneTarget: initialRaceLane(index),
       routeBias: initialRaceLane(index),
+      routeChoice: index % 2 ? 'alternative' : 'primary',
       wPrime: 100,
       freshness: 100,
       energy: 100,
@@ -487,6 +498,7 @@ function start() {
   rowingAudio.unlock();
   previewMode = false;
   reset();
+  playerRouteChoice = randomPlayerRouteChoice();
   selectCrew();
   prepareRaceDay();
 
@@ -577,6 +589,18 @@ function pauseRace() {
   updateUI();
 }
 
+function resumePausedRace() {
+  if (running) return;
+  rowingAudio.unlock();
+  const now = performance.now();
+  last = now;
+  phaseStart = now - TARGET_RECOVERY * 1000;
+  rowerChatter.arm(rower.name);
+  running = true;
+  document.getElementById('pauseOverlay').classList.add('hidden');
+  updateUI();
+}
+
 function withdrawRace(reason, medical = false) {
   if (previewMode || !running) return;
   recordEligible = false;
@@ -620,7 +644,7 @@ function showFinishReport(sec, place, newRouteRecord = false) {
   const startingInventory = initialInventory(selectedProvisionPack);
   for (const [key, food] of Object.entries(foods)) {
     const used = startingInventory[key] - inventory[key];
-    portions += used;
+    portions += food.servingUnits ? Math.ceil(used / food.servingUnits) : used;
     consumedCarbs += used * food.carbs;
     consumedFluid += used * food.fluid;
   }

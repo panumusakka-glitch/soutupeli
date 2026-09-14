@@ -90,7 +90,7 @@ document.getElementById('saveSlots').onclick = event => {
   const button = event.target.closest('.save-slot');
   if (button && !button.disabled) chooseSaveSlot(button.dataset.mode, Number(button.dataset.slot));
 };
-document.getElementById('continueButton').onclick = resumeRace;
+document.getElementById('continueButton').onclick = resumePausedRace;
 document.getElementById('withdrawButton').onclick = () => {
   if (confirm('Keskeytetäänkö soutu? Valvontavene noutaa sinut, eikä suoritusta voi jatkaa.')) withdrawRace('Keskeytit suorituksen omasta pyynnöstäsi. Valvontavene noutaa sinut turvallisesti.', false);
 };

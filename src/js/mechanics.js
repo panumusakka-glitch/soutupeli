@@ -105,7 +105,9 @@ function effectiveStrokePower() {
   const critical = criticalStrokePower();
   const nicotineFactor = 1 - Math.min(.22, .025 * Math.pow(nicotineLoad, 1.25));
   const digestionFactor = 1 - Math.min(.12, .0012 * Math.pow(digestionLoad, 1.08));
-  const substanceFactor = nicotineFactor * digestionFactor;
+  const fullnessFactor = 1 - Math.min(.4, gutFood / 3300);
+  const eatingFactor = raceElapsed < intakeUntil ? intakePowerFactor : 1;
+  const substanceFactor = nicotineFactor * digestionFactor * fullnessFactor * eatingFactor;
   if (strokePower <= critical) return strokePower * substanceFactor;
   // A drained W′ reserve also leaves short-term fatigue, so an all-out
   // request cannot turn into an indefinitely sustainable critical effort.
@@ -390,6 +392,7 @@ function updateBody(dt, s, raceSec, active) {
   alcoholLoad = Math.max(0, alcoholLoad - .18 * hour);
   nicotineLoad = Math.max(0, nicotineLoad - 1.25 * hour);
   digestionLoad = Math.max(0, digestionLoad - 3 * hour);
+  gutFood = Math.max(0, gutFood - 250 * hour);
 
   /*
    * Normaali fyysinen rasitus +

@@ -51,6 +51,7 @@ const stateRanges = {
   gutSodium: [0, 1e5],
   gutStress: [0, 100],
   digestionLoad: [0, 100],
+  gutFood: [0, 5000],
   alcoholLoad: [0, 20],
   nicotineLoad: [0, 20],
   wPrime: [0, 100],
@@ -71,6 +72,7 @@ function migrateRaceDay(day) {
 function validRace(s) {
   if (!s || s.version !== 1 || !rowers.some(r => r.name === s.rower) || !boats.some(b => b.name === s.boat) || !Object.hasOwn(materials, s.material)) return false;
   if (!Object.hasOwn(provisionPacks, s.provisionPack)) return false;
+  if (s.rower === 'Seppo Räty' && s.provisionPack !== 'fun') return false;
   if (boats.find(b => b.name === s.boat).spruceOnly && s.material !== 'spruce') return false;
   if (!Object.entries(stateRanges).every(([k, [lo, hi]]) => Number.isFinite(s[k]) && s[k] >= lo && s[k] <= hi)) return false;
   const max = initialInventory(s.provisionPack);
@@ -81,9 +83,19 @@ function loadRace(slot = activeSaveSlot) {
     const s = JSON.parse(localStorage.getItem(SAVE_SLOTS[slot - 1]));
     if (s && !Object.hasOwn(s, 'provisionPack')) s.provisionPack = 'legacy';
     if (s?.inventory) for (const key of Object.keys(foods)) if (!Number.isInteger(s.inventory[key])) s.inventory[key] = 0;
+    if (s?.rower === 'Seppo Räty' && s.provisionPack !== 'fun') {
+      s.provisionPack = 'fun';
+      s.inventory = initialInventory('fun');
+    }
     if (s && !Number.isFinite(s.bloodCarbs)) s.bloodCarbs = 20;
     if (s && !Number.isFinite(s.alcoholLoad)) s.alcoholLoad = 0;
     if (s && !Number.isFinite(s.digestionLoad)) s.digestionLoad = 0;
+    if (s && !Number.isFinite(s.gutFood)) s.gutFood = 0;
+    if (s && !Number.isFinite(s.intakeRemaining)) s.intakeRemaining = 0;
+    if (s && !Number.isFinite(s.intakePowerFactor)) s.intakePowerFactor = 1;
+    if (!Object.hasOwn(foods, s?.intakeKey)) s.intakeKey = null;
+    if (s && !Number.isFinite(s.intakeDuration)) s.intakeDuration = 0;
+    if (s && typeof s.intakeMessage !== 'string') s.intakeMessage = '';
     if (s && !Number.isFinite(s.nicotineLoad)) s.nicotineLoad = 0;
     if (s && !Number.isFinite(s.techniqueControl)) s.techniqueControl = 1;
     if (s && !Number.isFinite(s.wPrime)) s.wPrime = Number.isFinite(s.stamina) ? s.stamina : 100;
@@ -121,6 +133,7 @@ function snapshot() {
     strokePower,
     raceDay,
     raceStats: {...raceStats},
+    routeChoice: playerRouteChoice,
     carbs,
     bloodCarbs,
     gutCarbs,
@@ -130,6 +143,12 @@ function snapshot() {
     gutSodium,
     gutStress,
     digestionLoad,
+    gutFood,
+    intakeRemaining: Math.max(0, intakeUntil - raceElapsed),
+    intakeDuration: Math.max(0, intakeUntil - intakeStartedAt),
+    intakePowerFactor,
+    intakeKey,
+    intakeMessage,
     alcoholLoad,
     nicotineLoad,
     wPrime,
@@ -149,6 +168,7 @@ function snapshot() {
       lane: bot.lane,
       laneTarget: bot.laneTarget,
       routeBias: bot.routeBias,
+      routeChoice: bot.routeChoice,
       wPrime: bot.wPrime,
       freshness: bot.freshness,
       energy: bot.energy,
@@ -261,6 +281,7 @@ function resumeRace(slot = activeSaveSlot) {
   distance = s.distance;
   speed = s.speed;
   quality = s.quality;
+  playerRouteChoice = s.routeChoice === 'alternative' ? 'alternative' : 'primary';
   strokePower = Number.isFinite(rower.racePower)
     ? rower.racePower
     : Number.isFinite(s.strokePower) ? clamp(s.strokePower, 30, 110) : 70;
@@ -279,6 +300,12 @@ function resumeRace(slot = activeSaveSlot) {
   gutSodium = s.gutSodium;
   gutStress = s.gutStress;
   digestionLoad = s.digestionLoad;
+  gutFood = s.gutFood;
+  intakeUntil = raceElapsed + clamp(s.intakeRemaining, 0, 120);
+  intakeStartedAt = raceElapsed - Math.max(0, clamp(s.intakeDuration, 0, 120) - clamp(s.intakeRemaining, 0, 120));
+  intakePowerFactor = clamp(s.intakePowerFactor, .4, 1);
+  intakeKey = s.intakeRemaining > 0 ? s.intakeKey : null;
+  intakeMessage = intakeKey ? (s.intakeMessage || randomIntakeMessage(intakeKey, foods[intakeKey])) : '';
   alcoholLoad = s.alcoholLoad;
   nicotineLoad = s.nicotineLoad;
   wPrime = s.wPrime;
@@ -301,6 +328,7 @@ function resumeRace(slot = activeSaveSlot) {
         lane: Number.isFinite(saved.lane) ? clamp(saved.lane, -2, 2) : initialRaceLane(index),
         laneTarget: Number.isFinite(saved.laneTarget) ? clamp(saved.laneTarget, -2, 2) : initialRaceLane(index),
         routeBias: Number.isFinite(saved.routeBias) ? clamp(saved.routeBias, -2, 2) : initialRaceLane(index),
+        routeChoice: saved.routeChoice === 'alternative' ? 'alternative' : 'primary',
         wPrime: clamp(saved.wPrime, 0, 100),
         freshness: clamp(saved.freshness, 0, 100),
         energy: clamp(saved.energy, 0, 100),

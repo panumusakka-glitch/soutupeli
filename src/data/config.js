@@ -22,6 +22,7 @@ const INITIAL_BODY = {
   techniqueControl: 1,
   hydration: 100,
   energy: 100,
+  gutFood: 0,
   blisters: 0,
   cramps: 0
 };

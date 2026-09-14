@@ -46,11 +46,14 @@ const foods = {
     "unit": "drink"
   },
   "candy": {
-    "name": "Energiakarkki",
+    "name": "Fazer-hedelm\u00e4makeinen",
     "carbs": 5,
     "fluid": 0,
     "sodium": 0,
     "stress": 0,
+    "mass": 5,
+    "duration": 2,
+    "rowingFactor": 0.95,
     "stock": 15,
     "unit": "piece"
   },
@@ -84,43 +87,57 @@ const foods = {
     "unit": "piece"
   },
   "sausage": {
-    "name": "HK Sininen lenkki",
-    "carbs": 12,
+    "name": "HK Sininen -pala",
+    "carbs": 3,
     "fluid": 0,
-    "sodium": 900,
-    "stress": 18,
-    "stock": 4,
+    "sodium": 225,
+    "stress": 5,
+    "digestion": 12,
+    "mass": 145,
+    "duration": 12,
+    "rowingFactor": 0.5,
+    "stock": 8,
     "unit": "piece"
   },
   "chips": {
-    "name": "Sipsipussi",
-    "carbs": 28,
+    "name": "Taffel-sipsikourallinen",
+    "carbs": 8,
     "fluid": 0,
-    "sodium": 320,
-    "stress": 12,
-    "digestion": 14,
+    "sodium": 90,
+    "stress": 3,
+    "digestion": 3,
+    "mass": 17,
+    "duration": 10,
+    "rowingFactor": 0.8,
     "stackingStress": true,
     "stock": 6,
     "unit": "piece"
   },
   "donut": {
-    "name": "Donitsi",
+    "name": "Arnold's-donitsi",
     "carbs": 30,
     "fluid": 0,
     "sodium": 180,
     "stress": 10,
     "digestion": 12,
+    "mass": 80,
+    "duration": 10,
+    "rowingFactor": 0.7,
     "stackingStress": true,
     "stock": 8,
     "unit": "piece"
   },
   "cola": {
-    "name": "Coca-Cola",
-    "carbs": 35,
-    "fluid": 0.33,
-    "sodium": 15,
-    "stress": 6,
-    "fastCarbs": 20,
+    "name": "Sokerillinen Coca-Cola",
+    "carbs": 10.6,
+    "fluid": 0.1,
+    "sodium": 5,
+    "stress": 2,
+    "fastCarbs": 6,
+    "duration": 5,
+    "rowingFactor": 0.9,
+    "servingUnits": 2,
+    "inventoryUnit": "dl",
     "stackingStress": true,
     "stock": 12,
     "unit": "drink"
@@ -136,12 +153,14 @@ const provisionPacks = {
   fun: {
     name: "Hupisoutajan paketti",
     description: "Karhu-olutta, North State -tupakkaa ja HK Sinistä lenkkiä.",
-    inventory: {beer: 12, cigarette: 20, sausage: 4}
+    inventory: {beer: 12, cigarette: 20, sausage: 8},
+    description: "Karhu-olutta, North State -tupakkaa ja kaksi 580 g HK Sinist\u00e4 lenkki\u00e4."
   },
   gourmet: {
-    name: "Herkkusuun paketti",
+    name: "Herkuttelijan paketti",
     description: "Energiakarkkia, sipsejä, donitseja ja Coca-Colaa.",
-    inventory: {candy: 20, chips: 6, donut: 8, cola: 12}
+    inventory: {candy: 40, chips: 24, donut: 6, cola: 15},
+    description: "Kaksi 200 g Taffel-sipsipussia, kuusi Arnold's-donitsia, 200 g Fazer-hedelm\u00e4makeisia ja 1,5 l Coca-Colaa."
   },
   legacy: {
     name: "Perinteinen eväsvalikoima",
