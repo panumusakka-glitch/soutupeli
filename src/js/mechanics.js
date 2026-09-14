@@ -94,17 +94,20 @@ function rowerSweatRate(r = rower) {
 
 /*
  * Critical power is the highest stroke-power setting a rower can maintain
- * over the long race. Stamina is the finite W' reserve above that level.
+ * over the long race. W′ is the finite reserve above that level; freshness
+ * models the separate, slowly accumulating fatigue of the full race.
  */
-function criticalStrokePower(r = rower) {
-  return 54 + .30 * r.endurance + .08 * r.power;
+function criticalStrokePower(r = rower, currentFreshness = freshness) {
+  return (54 + .30 * r.endurance + .08 * r.power) * (.82 + .18 * currentFreshness / 100);
 }
 
 function effectiveStrokePower() {
   const critical = criticalStrokePower();
   if (strokePower <= critical) return strokePower;
-  // A nearly empty W' reserve progressively removes unsustainable power.
-  return critical + (strokePower - critical) * clamp(stamina / 20);
+  // A drained W′ reserve also leaves short-term fatigue, so an all-out
+  // request cannot turn into an indefinitely sustainable critical effort.
+  const depletedLimit = critical * (.86 + .08 * freshness / 100);
+  return depletedLimit + (strokePower - depletedLimit) * clamp(wPrime / 30);
 }
 
 function updateWPrime(dt, active) {
@@ -114,11 +117,18 @@ function updateWPrime(dt, active) {
   const requestedExcess = strokePower - critical;
   if (requestedExcess > 0) {
     // 10 percentage points above critical power empties a full reserve in ~15 min.
-    stamina = clamp(stamina - requestedExcess * dt / 90, 0, 100);
+    wPrime = clamp(wPrime - requestedExcess * dt / 90, 0, 100);
   } else {
     // Easy rowing restores only part of the reserve, and does so gradually.
-    stamina = clamp(stamina + (critical - strokePower) * dt / 160, 0, 100);
+    wPrime = clamp(wPrime + (critical - strokePower) * dt / 160, 0, 100);
   }
+}
+
+function updateFreshness(dt, effort, active) {
+  if (!active) return;
+  const load = .35 + .65 * effort + .20 * strokeRateStrain(currentStrokeRate()) +
+    .35 * Math.max(0, effectiveStrokePower() - criticalStrokePower()) / 15;
+  freshness = clamp(freshness - load * dt / 900, 0, 100);
 }
 
 function updateTechniqueControl(dt, s, effort, active) {
@@ -127,10 +137,11 @@ function updateTechniqueControl(dt, s, effort, active) {
   const fatigueLoad =
     Math.max(0, 65 - energy) / 65 +
     Math.max(0, 75 - hydration) / 75 +
-    .8 * (1 - stamina / 100) +
+    .45 * (1 - freshness / 100) +
+    .35 * (1 - wPrime / 100) +
     .55 * Math.max(0, effectiveStrokePower() - criticalStrokePower()) / 15 +
     .25 * strokeRateStrain(currentStrokeRate()) +
-    (s.wind ? .22 : 0);
+    (s.wind ? .22 * (s.windLoad ?? 1) : 0);
   const skillProtection = .55 + .45 * rower.skill / 99;
   const deterioration = fatigueLoad * (.04 + .10 * effort) / skillProtection;
   const recovery = effort < .48 && fatigueLoad < .45
@@ -191,8 +202,10 @@ function updateCramps(dt, effort, active = true, s = null) {
   const overdrive = active ? overdriveStrain() : 0;
   const effectivePower = effectiveStrokePower();
   const overCritical = Math.max(0, effectivePower - criticalStrokePower()) / 15;
-  const reserveDepletion = 1 - stamina / 100;
-  const windLoad = s?.wind ? .35 + s.speedLoss / 4 : 0;
+  const reserveDepletion = 1 - wPrime / 100;
+  const windLoad = s?.wind
+    ? (.35 + Math.max(0, s.speedLoss) / 4) * (s.windLoad ?? 1)
+    : 0;
 
   if (active) {
     powerSurge = clamp(
@@ -252,11 +265,12 @@ function updateBody(dt, s, raceSec, active) {
 
   const effort = rowingEffort(s, active);
   updateWPrime(dt, active);
+  updateFreshness(dt, effort, active);
   updateTechniqueControl(dt, s, effort, active);
   const cadenceStrain = strokeRateStrain(rpm);
   const powerLoad = active ? powerStrain() : 1;
   const overdrive = active ? overdriveStrain() : 0;
-  const dayStrain = (raceDay?.strain || 1) * (s.wind ? raceDay?.windStrain || 1 : 1);
+  const dayStrain = (raceDay?.strain || 1) * (s.wind ? 1 + ((raceDay?.windStrain || 1) - 1) * (s.windLoad ?? 1) : 1);
 
   /*
    * Liian suuri vetotahti kuluttaa energiaa,

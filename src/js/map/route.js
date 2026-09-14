@@ -1,6 +1,24 @@
 function section() {
   const p = distance / TOTAL;
-  return routeSections.find(s => p > s.from && p < s.to) || calmSection;
+  const base = routeSections.find(s => p > s.from && p < s.to) || calmSection;
+  const windIntensity = raceDay?.windIntensity ?? 1;
+  const direction = raceDay?.windDirection || 'head';
+  const directionEffect = {
+    head: {head: 1, cross: 0, load: 1, label: 'VASTATUULI'},
+    cross: {head: 0, cross: .55, load: .55, label: 'SIVUTUULI'},
+    // A following wind helps, but much less than an equal headwind hurts.
+    tail: {head: -.28, cross: .05, load: .25, label: 'MYÖTÄTUULI'}
+  }[direction];
+  if (!base.wind || windIntensity >= .15) return {
+    ...base,
+    name: base.name.replace('KOVA TUULI', directionEffect.label),
+    speedLoss: base.speedLoss * windIntensity * directionEffect.head,
+    windHead: base.speedLoss * windIntensity * directionEffect.head,
+    windCross: base.speedLoss * windIntensity * directionEffect.cross,
+    windLoad: directionEffect.load,
+    sweat: base.sweat * (.9 + .1 * windIntensity) * (.94 + .06 * directionEffect.load)
+  };
+  return {...base, name: base.name.replace('KOVA TUULI', 'PLÄKKITYYNI'), speedLoss: 0, wind: 0};
 }
 function pointOnRoute(progress, w, h) {
   const ls = [];

@@ -18,20 +18,6 @@ function drawStartBridge(m, w, h, now) {
   c.translate(x, y);
   c.rotate(p.angle);
   c.imageSmoothingEnabled = true;
-  // Continue the access road well beyond the visible start area so it never
-  // appears to end abruptly in the forest behind the bridge.
-  const roadLength = 420 * scale;
-  c.fillStyle = 'rgba(8,15,32,.3)';
-  c.fillRect(-deck / 2 + 3, halfSpan + 3, deck, roadLength);
-  c.fillStyle = '#708090';
-  c.fillRect(-deck / 2, halfSpan, deck, roadLength);
-  c.fillStyle = '#e8dfba';
-  c.fillRect(-deck / 2, halfSpan, Math.max(1, scale * .4), roadLength);
-  c.fillRect(deck / 2 - scale * .4, halfSpan, Math.max(1, scale * .4), roadLength);
-  c.fillStyle = '#bcc7cd';
-  for (let i = 10 * scale; i < roadLength; i += 8 * scale) {
-    c.fillRect(-scale * .2, halfSpan + i, scale * .4, scale * 4);
-  }
   c.fillStyle = 'rgba(8,15,32,.3)';
   c.fillRect(-deck / 2 + 3, -halfSpan + 3, deck, halfSpan * 2);
   c.fillStyle = '#708090';
@@ -73,26 +59,33 @@ function drawStartBridge(m, w, h, now) {
     colors = ['#d84838', '#f8d848', '#3888d8', '#f0e8d0', '#c068a0'],
     spectatorCount = 14;
   const racerCount = botRacers.length + 1;
-  const crossingProgress = (
-    clamp(distance / 50) +
-    botRacers.reduce((sum, bot) => sum + clamp(bot.distance / 50), 0)
+  const fleetDistance = (
+    distance +
+    botRacers.reduce((sum, bot) => sum + bot.distance, 0)
   ) / racerCount;
+  // Departures happen in four distinct groups.  One supporter stays all day.
+  // The visible headcount becomes 14 → 7 → 5 → 3 → 1 as the fleet recedes.
+  const departureAt = index => index < 1 ? Infinity : index < 3 ? 1100 : index < 5 ? 750 : index < 7 ? 450 : 150;
+  // Keep every spectator inside the bridge deck.  They walk along the road
+  // toward its far end and disappear beyond the camera, never sideways into
+  // Hakovirta.
+  c.save();
+  c.beginPath();
+  c.rect(-deck / 2, -halfSpan, deck, halfSpan * 2);
+  c.clip();
   for (let i = 0; i < spectatorCount; i++) {
-    const walkDelay = Math.floor(i / 2) * .08,
-      walkProgress = i % 2
-        ? clamp((crossingProgress - walkDelay) / (1 - walkDelay))
-        : 1,
+    const walkProgress = clamp((fleetDistance - departureAt(i)) / 150),
       smoothWalk = walkProgress * walkProgress * (3 - 2 * walkProgress);
-    const cy = (-12 + i * 1.8) * scale,
-      side = i % 2 ? -1 + 2 * smoothWalk : 1,
-      cx = side * deck * .26,
-      bounce = running && distance < 450 ? Math.sin(now * .011 + i) * size * .35 : 0;
+    const startY = (-12 + i * 1.8) * scale,
+      cy = startY + smoothWalk * (halfSpan * 1.7 - startY),
+      cx = (i % 2 ? -.22 : .22) * deck,
+      cheer = 1 - smoothWalk * .9,
+      bounce = running && cheer > .15 ? Math.sin(now * .011 + i) * size * .35 * cheer : 0;
     c.save();
     c.translate(cx, cy + bounce);
-    c.rotate(side < 0 ? -Math.PI / 2 : Math.PI / 2);
     const bodyWidth = size * 1.7,
       bodyHeight = size * 2.15,
-      clap = running && distance < 450 ? Math.sin(now * .016 + i) > .2 ? .25 : 1.55 : .9;
+      clap = running && cheer > .15 ? (Math.sin(now * .016 + i) > .2 ? .25 : 1.55) * cheer : .35;
     c.fillStyle = 'rgba(7,14,28,.32)';
     c.beginPath();
     c.ellipse(size * .18, size * 1.7, bodyWidth * .8, size * .42, 0, 0, Math.PI * 2);
@@ -120,6 +113,7 @@ function drawStartBridge(m, w, h, now) {
     c.stroke();
     c.restore();
   }
+  c.restore();
   if (raceStarterImageReady) {
     const sneakProgress = clamp((raceElapsed - 7) / 5),
       smoothSneak = sneakProgress * sneakProgress * (3 - 2 * sneakProgress),

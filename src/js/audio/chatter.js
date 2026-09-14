@@ -16,7 +16,7 @@ const rowerChatter = (() => {
     time: 0,
     speed: 0,
     wind: false,
-    stamina: 100,
+    freshness: 100,
     energy: 100,
     hydration: 100,
     blisters: 0,
@@ -54,7 +54,7 @@ const rowerChatter = (() => {
   function contextualCurses() {
     const s = condition,
       pool = [...lines.swear];
-    if (s.stamina < 55) pool.push(...complaints.tired);
+    if (s.freshness < 55) pool.push(...complaints.tired);
     if (s.energy < 45) pool.push(...complaints.energy);
     if (s.gutStress > 15 || s.gutFluid > .65) pool.push(...complaints.stomach);
     if (s.blisters >= 5) pool.push(...complaints.blisters);else if (s.time > 1200 && !rowers.find(r => r.name === selectedRower)?.blisterImmune) pool.push(...complaints.blisterWorry);
@@ -90,7 +90,7 @@ const rowerChatter = (() => {
       time: 0,
       speed: 0,
       wind: false,
-      stamina: 100,
+      freshness: 100,
       energy: 100,
       hydration: 100,
       blisters: 0,
@@ -194,7 +194,7 @@ const rowerChatter = (() => {
     if (windTime > 30 && Math.random() < 1 - Math.exp(-dt / 180)) {
       if (say('wind', time)) return;
     }
-    if (Math.random() < 1 - Math.exp(-dt / 240) && (condition.stamina < 55 || condition.energy < 45 || condition.blisters >= 5 || condition.gutStress > 15)) if (say('swear', time)) return;
+    if (Math.random() < 1 - Math.exp(-dt / 240) && (condition.freshness < 55 || condition.energy < 45 || condition.blisters >= 5 || condition.gutStress > 15)) if (say('swear', time)) return;
     if (quality > .85 && speed > 9.5 && Math.random() < 1 - Math.exp(-dt / (time < 300 ? 35 : 300))) say('good', time);
   }
   document.addEventListener('visibilitychange', () => {

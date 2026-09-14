@@ -30,7 +30,7 @@
     <section class="body-dashboard" aria-label="Soutajan tila">
       <div class="meter-card"><p><span>Nestetasapaino</span><b id="hydrationValue">100 %</b></p><div class="meter"><i id="hydrationBar"></i></div><small id="hydrationHint">Tasapainossa</small></div>
       <div class="meter-card"><p><span>Energiatasapaino</span><b id="energyValue">100 %</b></p><div class="meter"><i id="energyBar"></i></div><small id="energyHint">Varastot täynnä</small></div>
-      <div class="meter-card"><p><span>Voimat</span><b id="staminaValue">100 %</b></p><div class="meter"><i id="staminaBar"></i></div><small id="staminaHint">Tuore soutaja</small></div>
+      <div class="meter-card"><p><span>Tuoreus</span><b id="staminaValue">100 %</b></p><div class="meter"><i id="staminaBar"></i></div><small id="staminaHint">Tuore soutaja · W′ 100 %</small></div>
       <div class="meter-card"><p><span>Käsien rakot</span><b id="blisterValue">0 %</b></p><div class="meter blister-meter"><i id="blisterBar"></i></div><small id="blisterHint">Kädet kunnossa</small></div>
       <div class="meter-card"><p><span>Krampit</span><b id="crampValue">0 %</b></p><div class="meter"><i id="crampBar"></i></div><small id="crampHint">Ei kramppeja</small></div><div class="race-clock"><span>Aika</span><strong id="raceTime">00:00:00</strong><small id="pacePrediction">Ennuste —</small></div>
     </section>
@@ -38,6 +38,10 @@
     <section class="lake-wrap">
       <canvas id="lake" aria-label="Ylhäältä kuvattu soutupeli"></canvas>
 
+      <section id="previewControls" class="preview-controls" aria-label="Esikatselun ohjaimet" hidden>
+        <label>AIKA<input id="previewTimeline" type="range" min="0" max="1000" value="0" step="1" aria-label="Esikatselun aikajana"></label>
+        <label>NOPEUS<select id="previewSpeed" aria-label="Esikatselun nopeus"><option value="0.25">0,25×</option><option value="1">1×</option><option value="4">4×</option><option value="30">30×</option><option value="180" selected>180×</option></select></label>
+      </section>
       <aside class="leaderboard" aria-label="Kilpailutilanne">
         <div class="leaderboard-head"><h2 id="leaderboardTitle">TILANNE</h2><button id="leaderboardToggle" type="button" aria-expanded="false" aria-controls="leaderboard">Kaikki</button></div>
         <ol id="leaderboard"></ol>
@@ -75,7 +79,7 @@
         <p id="startInstructions" hidden>Lähtö Hakovirran sillalta. Paina karttaa tai <kbd>välilyönti</kbd> pohjaan kiinniotossa.<br>Vedä vihreälle alueelle, vapauta ja anna veneen liukua takaisin kiinniottoon.</p>
         <p id="saveStatus" role="status" hidden>Soutu tallentuu automaattisesti tähän selaimeen.</p><button id="startButton" hidden>Lähde Hakovirralta</button>
       </div>
-      <div id="pauseOverlay" class="overlay hidden"><h2>Soutu tauolla</h2><p>Aika ja voimavarat pysyvät paikallaan.</p><p id="pauseStatus" role="status"></p><button id="continueButton" type="button">Jatka soutua</button><button id="crewMenuButton" type="button">Aloitusvalikko</button></div>
+      <div id="pauseOverlay" class="overlay hidden"><h2>Soutu tauolla</h2><p>Aika ja voimavarat pysyvät paikallaan.</p><p id="pauseStatus" role="status"></p><button id="continueButton" type="button">Jatka soutua</button><button id="withdrawButton" type="button">Keskeytä · pyydä valvontavene</button><button id="crewMenuButton" type="button">Aloitusvalikko</button></div>
       <div id="finishOverlay" class="overlay hidden">
         <p class="eyebrow">PARTALANSAARI KIERRETTY</p>
         <h2 id="finishTime">00:00</h2>

@@ -13,7 +13,8 @@ game.run(`
     halfwayAt: 9000
   };
   raceElapsed = 18000;
-  stamina = 12;
+  wPrime = 12;
+  freshness = 12;
   energy = 20;
   hydration = 74;
   cramps = 31;

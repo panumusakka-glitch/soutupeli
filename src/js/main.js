@@ -48,6 +48,12 @@ document.addEventListener('visibilitychange', () => {
 });
 ['contextmenu', 'selectstart', 'dragstart'].forEach(type => canvas.addEventListener(type, e => e.preventDefault()));
 document.getElementById('startButton').onclick = start;
+document.getElementById('previewTimeline').addEventListener('input', event => {
+  seekPreview(Number(event.target.value) / 1000);
+});
+document.getElementById('previewSpeed').addEventListener('change', event => {
+  previewPlaybackRate = Number(event.target.value);
+});
 document.getElementById('startOverlay').addEventListener('pointerdown', () => rowingAudio.startMenuMusic(), {once: true});
 addEventListener('keydown', () => rowingAudio.startMenuMusic(), {once: true});
 document.getElementById('againButton').onclick = () => {
@@ -76,6 +82,9 @@ document.getElementById('saveSlots').onclick = event => {
   if (button && !button.disabled) chooseSaveSlot(button.dataset.mode, Number(button.dataset.slot));
 };
 document.getElementById('continueButton').onclick = resumeRace;
+document.getElementById('withdrawButton').onclick = () => {
+  if (confirm('Keskeytetäänkö soutu? Valvontavene noutaa sinut, eikä suoritusta voi jatkaa.')) withdrawRace('Keskeytit suorituksen omasta pyynnöstäsi. Valvontavene noutaa sinut turvallisesti.', false);
+};
 document.getElementById('crewMenuButton').onclick = () => {
   reset();
   selectDefaultCrew();
@@ -83,11 +92,19 @@ document.getElementById('crewMenuButton').onclick = () => {
 };
 addEventListener('pagehide', pauseRace);
 function loop(now) {
-  const dt = Math.max(0, Math.min(.04, (now - last) / 1000));
+  const realDt = Math.max(0, Math.min(.04, (now - last) / 1000));
   last = now;
+  if (previewMode && now - previewLastStroke >= TARGET_CYCLE * 1000) {
+    previewLastStroke = now;
+    strokeTimes.push(now);
+    strokeTimes = strokeTimes.filter(time => now - time < 15000);
+    quality = .92;
+    strokePulse = .5;
+  }
+  const dt = realDt * (previewMode ? previewPlaybackRate : 1);
   if (document.hidden) pauseRace();
   update(dt, now);
-  if (running && now - lastSaveAt >= 5000) saveRace();
+  if (running && !previewMode && now - lastSaveAt >= 5000) saveRace();
   draw(now);
 }
 selectCrew();

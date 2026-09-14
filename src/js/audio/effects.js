@@ -95,7 +95,7 @@ const rowingAudio = (() => {
     crowdNodes.clear();
   }
   function startMenuMusic() {
-    if (!enabled) return;
+    if (!enabled || !document.body.classList.contains('start-menu')) return;
     const playback = menuMusic.play();
     playback.catch(() => {});
     return playback;

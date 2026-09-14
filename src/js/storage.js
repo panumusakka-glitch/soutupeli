@@ -50,13 +50,21 @@ const stateRanges = {
   sodiumBalance: [-1e6, 1e6],
   gutSodium: [0, 1e5],
   gutStress: [0, 100],
-  stamina: [0, 100],
+  wPrime: [0, 100],
+  freshness: [0, 100],
   techniqueControl: [0, 1],
   hydration: [0, 100],
   energy: [0, 100],
   blisters: [0, 100],
   cramps: [0, 100]
 };
+function migrateRaceDay(day) {
+  if (day && !Object.hasOwn(day, 'tactic')) day.tactic = 'steady';
+  if (day && !Number.isFinite(day.windIntensity)) day.windIntensity = 1;
+  if (day && !Object.hasOwn(day, 'weather')) day.weather = 'normal';
+  if (day && !['head', 'cross', 'tail'].includes(day.windDirection)) day.windDirection = 'head';
+  return day;
+}
 function validRace(s) {
   if (!s || s.version !== 1 || !rowers.some(r => r.name === s.rower) || !boats.some(b => b.name === s.boat) || !Object.hasOwn(materials, s.material)) return false;
   if (boats.find(b => b.name === s.boat).spruceOnly && s.material !== 'spruce') return false;
@@ -69,9 +77,17 @@ function loadRace(slot = activeSaveSlot) {
     const s = JSON.parse(localStorage.getItem(SAVE_SLOTS[slot - 1]));
     if (s && !Number.isFinite(s.bloodCarbs)) s.bloodCarbs = 20;
     if (s && !Number.isFinite(s.techniqueControl)) s.techniqueControl = 1;
+    if (s && !Number.isFinite(s.wPrime)) s.wPrime = Number.isFinite(s.stamina) ? s.stamina : 100;
+    if (s && !Number.isFinite(s.freshness)) s.freshness = 100;
+    if (s?.raceDay && !Number.isFinite(s.raceDay.freshness)) s.raceDay.freshness = Number.isFinite(s.raceDay.stamina) ? s.raceDay.stamina : 100;
     if (s?.raceDay && !Number.isFinite(s.raceDay.heat)) s.raceDay.heat = 1;
+    migrateRaceDay(s?.raceDay);
     if (Array.isArray(s?.bots)) s.bots.forEach(bot => {
       if (bot.day && !Number.isFinite(bot.day.heat)) bot.day.heat = 1;
+      if (!Number.isFinite(bot.wPrime)) bot.wPrime = Number.isFinite(bot.stamina) ? bot.stamina : 100;
+      if (!Number.isFinite(bot.freshness)) bot.freshness = 100;
+      if (bot.day && !Number.isFinite(bot.day.freshness)) bot.day.freshness = Number.isFinite(bot.day.stamina) ? bot.day.stamina : 100;
+      migrateRaceDay(bot.day);
     });
     if (s?.rower && renamedRowers[s.rower]) s.rower = renamedRowers[s.rower];
     if (Array.isArray(s?.bots)) s.bots.forEach(bot => {
@@ -103,7 +119,8 @@ function snapshot() {
     sodiumBalance,
     gutSodium,
     gutStress,
-    stamina,
+    wPrime,
+    freshness,
     techniqueControl,
     hydration,
     energy,
@@ -119,8 +136,17 @@ function snapshot() {
       lane: bot.lane,
       laneTarget: bot.laneTarget,
       routeBias: bot.routeBias,
-      stamina: bot.stamina,
+      wPrime: bot.wPrime,
+      freshness: bot.freshness,
       energy: bot.energy,
+      fluidBalance: bot.fluidBalance,
+      gutFluid: bot.gutFluid,
+      gutCarbs: bot.gutCarbs,
+      gutStress: bot.gutStress,
+      sodiumBalance: bot.sodiumBalance,
+      hydration: bot.hydration,
+      cramps: bot.cramps,
+      nextFuelAt: bot.nextFuelAt,
       day: bot.day,
       finishedAt: bot.finishedAt
     })),
@@ -234,7 +260,8 @@ function resumeRace(slot = activeSaveSlot) {
   sodiumBalance = s.sodiumBalance;
   gutSodium = s.gutSodium;
   gutStress = s.gutStress;
-  stamina = s.stamina;
+  wPrime = s.wPrime;
+  freshness = s.freshness;
   techniqueControl = s.techniqueControl;
   hydration = s.hydration;
   energy = s.energy;
@@ -246,15 +273,24 @@ function resumeRace(slot = activeSaveSlot) {
   if (Array.isArray(s.bots)) {
     botRacers = s.bots.flatMap((saved, index) => {
       const botRower = rowers.find(r => r.name === saved.rower);
-      return botRower && Number.isFinite(saved.distance) && Number.isFinite(saved.speed) && Number.isFinite(saved.stamina) && Number.isFinite(saved.energy) ? [{
+      return botRower && Number.isFinite(saved.distance) && Number.isFinite(saved.speed) && Number.isFinite(saved.wPrime) && Number.isFinite(saved.freshness) && Number.isFinite(saved.energy) ? [{
         rower: botRower,
         distance: clamp(saved.distance, 0, TOTAL),
         speed: clamp(saved.speed, 0, maxRowerSpeed(botRower)),
         lane: Number.isFinite(saved.lane) ? clamp(saved.lane, -2, 2) : initialRaceLane(index),
         laneTarget: Number.isFinite(saved.laneTarget) ? clamp(saved.laneTarget, -2, 2) : initialRaceLane(index),
         routeBias: Number.isFinite(saved.routeBias) ? clamp(saved.routeBias, -2, 2) : initialRaceLane(index),
-        stamina: clamp(saved.stamina, 0, 100),
+        wPrime: clamp(saved.wPrime, 0, 100),
+        freshness: clamp(saved.freshness, 0, 100),
         energy: clamp(saved.energy, 0, 100),
+        fluidBalance: Number.isFinite(saved.fluidBalance) ? clamp(saved.fluidBalance, -100, 100) : (validRaceDay(saved.day) ? (saved.day.hydration - 100) / 31.25 : 0),
+        gutFluid: Number.isFinite(saved.gutFluid) ? clamp(saved.gutFluid, 0, 30) : 0,
+        gutCarbs: Number.isFinite(saved.gutCarbs) ? clamp(saved.gutCarbs, 0, 2000) : 0,
+        gutStress: Number.isFinite(saved.gutStress) ? clamp(saved.gutStress, 0, 100) : 0,
+        sodiumBalance: Number.isFinite(saved.sodiumBalance) ? clamp(saved.sodiumBalance, -1e6, 1e6) : 700,
+        hydration: Number.isFinite(saved.hydration) ? clamp(saved.hydration, 0, 100) : (validRaceDay(saved.day) ? saved.day.hydration : 100),
+        cramps: Number.isFinite(saved.cramps) ? clamp(saved.cramps, 0, 100) : (validRaceDay(saved.day) ? saved.day.cramps : 0),
+        nextFuelAt: Number.isFinite(saved.nextFuelAt) ? Math.max(0, saved.nextFuelAt) : s.elapsed + (720 - s.elapsed % 720),
         day: validRaceDay(saved.day) ? saved.day : randomRaceDay(botRower),
         finishedAt: saved.finishedAt === null || Number.isFinite(saved.finishedAt) ? saved.finishedAt : null
       }] : [];
@@ -264,6 +300,7 @@ function resumeRace(slot = activeSaveSlot) {
   running = true;
   recordEligible = true;
   document.body.classList.remove('start-menu');
+  rowingAudio.stopMenuMusic();
   last = performance.now();
   phaseStart = last - TARGET_RECOVERY * 1000;
   rowerSelect.disabled = boatSelect.disabled = materialSelect.disabled = true;

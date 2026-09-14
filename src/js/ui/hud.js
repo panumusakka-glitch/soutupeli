@@ -106,7 +106,7 @@ function updateUI(now = performance.now()) {
   const sweatHint = sweatRate > 1 ? 'runsas hikoilu' : sweatRate < .85 ? 'kevyt hikoilu' : 'tavanomainen hikoilu';
   setMeter('hydration', hydration, `${fluidBalance < -.1 ? 'Nestevajetta' : fluidBalance > .1 ? 'Nesteylijäämää' : 'Nestemäärä tasapainossa'} ${Math.abs(fluidBalance).toFixed(2)} l · ${sweatHint} · imeytymässä ${(gutFluid * 10).toFixed(1)} dl${sodiumBalance < 0 ? ' · natriumvajetta' : ''}`);
   setMeter('energy', energy, energy > 75 ? 'Energiaa riittää' : energy > 45 ? 'Syö pian' : 'Energia loppuu');
-  setMeter('stamina', stamina, stamina > 75 ? 'Ylitehoreservi kunnossa' : stamina > 20 ? 'Ylitehoreservi hupenee' : 'Ylitehoreservi tyhjä · kevennä soutua');
+  setMeter('stamina', freshness, freshness > 75 ? `Tuoreus hyvä · W′ ${Math.round(wPrime)} %` : freshness > 35 ? `Pitkä kuormitus tuntuu · W′ ${Math.round(wPrime)} %` : `Väsymys painaa · W′ ${Math.round(wPrime)} %`);
   ui.blisterValue.textContent = `${Math.round(blisters)} %`;
   ui.blisterBar.style.width = `${blisters}%`;
   ui.blisterHint.textContent = blisters < 5 ? 'Kädet kunnossa' : blisters < 20 ? 'Pieniä rakon alkuja' : blisters < 55 ? 'Rakot tuntuvat vedossa' : 'Kädet ovat pahasti rakoilla';

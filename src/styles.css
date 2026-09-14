@@ -182,3 +182,22 @@ body.start-menu .creator-credit{text-shadow:1px 1px #071025;letter-spacing:.02em
 @keyframes saimaa-shimmer{0%,100%{background-position:center,center,0 0;opacity:.72}50%{background-position:center,center,36px 14px;opacity:1}}
 @keyframes logo-glow{0%,100%{filter:drop-shadow(0 0 2px #fff2ae) drop-shadow(5px 6px 0 #080f20) drop-shadow(0 0 16px rgba(248,184,72,.24))}50%{filter:drop-shadow(0 0 4px #fff9c9) drop-shadow(5px 6px 0 #080f20) drop-shadow(0 0 30px rgba(248,184,72,.52))}}
 @media(prefers-reduced-motion:reduce){body.start-menu #startOverlay::before,body.start-menu .start-logo{animation:none}}
+
+/* Save selection: a calmer arcade panel with distinct, readable save cards. */
+.save-menu-actions[hidden]{display:none}
+body.start-menu .resume-panel{padding:26px 24px 22px;border-color:#ffe56b;background:linear-gradient(155deg,rgba(39,62,111,.98),rgba(15,29,65,.98) 58%,rgba(8,20,50,.98));box-shadow:0 0 0 4px rgba(5,12,31,.82),7px 8px 0 #050b1c,0 0 34px rgba(89,183,255,.22)}
+body.start-menu .resume-panel strong{font-size:21px;letter-spacing:.035em}
+body.start-menu .resume-panel p{max-width:340px;margin:12px auto 20px;line-height:1.65}
+body.start-menu .save-slots{gap:10px;margin:0 0 16px}
+body.start-menu .save-slot{grid-template-columns:68px 1fr auto;padding:12px 13px!important;border-color:#85b8e4!important;background:linear-gradient(90deg,#203d70,#162b58)!important;box-shadow:3px 3px #080f20!important;transition:transform .12s steps(2),border-color .12s steps(2),filter .12s steps(2)}
+body.start-menu .save-slot:hover:not(:disabled){transform:translate(-1px,-1px);border-color:#ffe56b!important;filter:brightness(1.14)}
+body.start-menu .save-slot b{color:#f8f0c0;line-height:1.15}
+body.start-menu .save-slot span{color:#d6e5f6;font-size:12px}
+body.start-menu .save-slot em{color:#ffe56b;text-shadow:1px 1px #0c1834}
+body.start-menu #saveSlotBack{margin-top:2px;color:#d9e9ff;text-decoration:none;border-bottom:1px solid #d9e9ff}
+body.start-menu #saveSlotBack:hover{color:#ffe56b;border-color:#ffe56b}
+body.start-menu .preview-button{margin-top:14px;color:#a9d8ff;text-decoration:none;border-bottom:1px solid #658bb8}
+body.start-menu .preview-button:hover{color:#ffe56b;border-color:#ffe56b}
+body.preview-mode::after{content:"ESIKATSELU · 180×";position:fixed;z-index:20;right:12px;bottom:12px;padding:6px 9px;background:#101830;border:2px solid #ffe56b;color:#ffe56b;font:700 12px "Courier New",monospace;box-shadow:3px 3px #080f20;pointer-events:none}
+.preview-controls{position:absolute;z-index:21;left:12px;right:12px;bottom:12px;display:grid;grid-template-columns:minmax(140px,1fr) auto;align-items:end;gap:10px;padding:8px 10px;background:rgba(16,24,48,.94);border:2px solid #ffe56b;box-shadow:3px 3px #080f20;color:#fff8d8;font:700 11px "Courier New",monospace}.preview-controls[hidden]{display:none}.preview-controls label{display:grid;gap:5px}.preview-controls input{width:100%;accent-color:#f8d848}.preview-controls select{padding:4px;background:#101830;border:1px solid #92b2d8;color:#fff8d8;font:inherit}@media(max-width:520px){.preview-controls{grid-template-columns:1fr;gap:7px;bottom:8px;left:8px;right:8px}}
+@media(max-width:520px){body.start-menu .resume-panel{padding:20px 14px 16px}body.start-menu .save-slot{grid-template-columns:58px 1fr auto;gap:6px;padding:11px 8px!important}body.start-menu .save-slot span{font-size:11px}}
