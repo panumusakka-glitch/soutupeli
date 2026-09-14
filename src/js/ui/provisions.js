@@ -85,6 +85,7 @@ function updateIntakeProgress() {
   const name = intakeKey === 'sausage' ? 'HK Sinistä' : foods[intakeKey].name;
   ui.lastIntake.textContent = `Mutustaa ${name}, nom nom nom · ${Math.ceil(intakeUntil - raceElapsed)} s`;
   ui.lastIntake.textContent = `${intakeMessage} Â· ${Math.ceil(intakeUntil - raceElapsed)} s`;
+  ui.lastIntake.textContent = `${intakeMessage} - ${Math.ceil(intakeUntil - raceElapsed)} s`;
   progress.hidden = false;
   progress.setAttribute('aria-valuenow', String(percent));
   bar.style.width = `${percent}%`;
