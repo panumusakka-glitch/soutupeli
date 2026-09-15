@@ -1,5 +1,8 @@
 // Shared live simulation state; defaults are in data/config.js and data/foods.js.
 let raceElapsed = 0,
+  playerFinishedAt = null,
+  playerFinishPlace = null,
+  playerRouteRecord = false,
   lastSaveAt = 0,
   pausedSave = null;
 let running = false,
@@ -56,6 +59,8 @@ let intakeUntil = 0,
   intakeMessage = '';
 let selectedProvisionPack = '',
   inventory = initialInventory(selectedProvisionPack);
+let raceType = 'single',
+  partnerRower = null;
 let rower = rowers.find(r => r.name === DEFAULT_CREW.rower),
   selectedBoat = boats.find(b => b.name === DEFAULT_CREW.boat),
   material = DEFAULT_CREW.material;

@@ -1,4 +1,5 @@
 // Fictional game ratings. Higher cramp is worse; other stats help.
+const doubleRowerNames = ['Juho Karhu', 'El Toro'];
 const rowers = [{
   "name": "Joel Naukkarinen",
   "speed": 99,
@@ -10,6 +11,30 @@ const rowers = [{
   "power": 99,
   "blisterImmune": false,
   "voiceGender": "male"
+}, {
+  "name": "Juho Karhu",
+  "speed": 94,
+  "endurance": 96,
+  "skill": 95,
+  "cramp": 14,
+  "hands": 94,
+  "stomach": 93,
+  "power": 95,
+  "blisterImmune": false,
+  "voiceGender": "male",
+  "doubleOnly": true
+}, {
+  "name": "El Toro",
+  "speed": 93,
+  "endurance": 95,
+  "skill": 96,
+  "cramp": 15,
+  "hands": 95,
+  "stomach": 92,
+  "power": 96,
+  "blisterImmune": false,
+  "voiceGender": "male",
+  "doubleOnly": true
 }, {
   "name": "Pertti Karppinen",
   "speed": 99,
@@ -201,7 +226,7 @@ const rowers = [{
   "blisterImmune": false,
   "voiceGender": "male"
 }, {
-  "name": "Einari Luukkonen",
+  "name": "Einari \"Leppäsuaren Einar\" Luukkonen",
   "speed": 89,
   "endurance": 97,
   "skill": 96,
@@ -268,6 +293,50 @@ const rowers = [{
   "blisterImmune": false,
   "voiceGender": "male",
   "bestTimeMinutes": 360
+}, {
+  "name": "Seppo Hulkkonen",
+  "speed": 93,
+  "endurance": 95,
+  "skill": 92,
+  "cramp": 16,
+  "hands": 91,
+  "stomach": 94,
+  "power": 96,
+  "blisterImmune": false,
+  "voiceGender": "male"
+}, {
+  "name": "Hannu Liukkonen",
+  "speed": 89,
+  "endurance": 94,
+  "skill": 96,
+  "cramp": 18,
+  "hands": 95,
+  "stomach": 89,
+  "power": 94,
+  "blisterImmune": false,
+  "voiceGender": "male"
+}, {
+  "name": "Mirjami Laukkanen",
+  "speed": 94,
+  "endurance": 96,
+  "skill": 95,
+  "cramp": 14,
+  "hands": 93,
+  "stomach": 91,
+  "power": 92,
+  "blisterImmune": false,
+  "voiceGender": "female"
+}, {
+  "name": "Puavo Immonen",
+  "speed": 87,
+  "endurance": 95,
+  "skill": 94,
+  "cramp": 24,
+  "hands": 97,
+  "stomach": 92,
+  "power": 90,
+  "blisterImmune": false,
+  "voiceGender": "male"
 }, {
   "name": "Sale Steel",
   "speed": 65,

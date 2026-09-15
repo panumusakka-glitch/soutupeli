@@ -81,7 +81,7 @@ function boat(x, y, angle, now) {
   ctx.beginPath();
   ctx.arc(0, 3 - 7 * t, 3, 0, Math.PI * 2);
   ctx.fill();
-  if (rower.name === 'Einari Luukkonen') {
+  if (rower.name === 'Einari "Leppäsuaren Einar" Luukkonen') {
     const mouthY = 3 - 7 * t;
     ctx.strokeStyle = '#492819';
     ctx.lineWidth = 2;
@@ -111,22 +111,27 @@ function boat(x, y, angle, now) {
     }
   }
   const bladeY = 11 - 22 * t,
-    bladeX = 12 - 7 * t;
+    bladeX = 12 - 7 * t,
+    oarSeatOffsets = raceType === 'double' && partnerRower ? [-5, 7] : [0];
   ctx.strokeStyle = '#f1dfbd';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(-2, 1);
-  ctx.lineTo(-bladeX, bladeY);
-  ctx.moveTo(2, 1);
-  ctx.lineTo(bladeX, bladeY);
+  oarSeatOffsets.forEach(offset => {
+    ctx.moveTo(-2, 1 + offset);
+    ctx.lineTo(-bladeX, bladeY + offset);
+    ctx.moveTo(2, 1 + offset);
+    ctx.lineTo(bladeX, bladeY + offset);
+  });
   ctx.stroke();
   ctx.strokeStyle = pressing ? 'rgba(220,246,238,.85)' : 'rgba(220,246,238,.25)';
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(-bladeX - 3, bladeY);
-  ctx.lineTo(-bladeX + 2, bladeY);
-  ctx.moveTo(bladeX - 2, bladeY);
-  ctx.lineTo(bladeX + 3, bladeY);
+  oarSeatOffsets.forEach(offset => {
+    ctx.moveTo(-bladeX - 3, bladeY + offset);
+    ctx.lineTo(-bladeX + 2, bladeY + offset);
+    ctx.moveTo(bladeX - 2, bladeY + offset);
+    ctx.lineTo(bladeX + 3, bladeY + offset);
+  });
   ctx.stroke();
   ctx.restore();
 }
@@ -163,22 +168,26 @@ function drawBotPortrait(p, bot) {
   displayCtx.restore();
 }
 function drawRowerPortrait(p, now) {
-  const portrait = portraits[rower.name];
-  if (!portrait?.complete || !portrait.naturalWidth) return;
-  const c = displayCtx;
-  c.save();
-  c.imageSmoothingEnabled = true;
-  c.imageSmoothingQuality = 'high';
-  c.translate(p.x, p.y);
-  c.rotate(p.angle + Math.PI / 2);
-  c.translate(0, -1);
-  c.rotate(-p.angle - Math.PI / 2);
-  if (portraitMask()) {
-    c.beginPath();
-    portraitMask().forEach(([x, y], i) => c[i ? 'lineTo' : 'moveTo'](-14 + x * 28, -19 + y * 28));
-    c.closePath();
-    c.clip();
-  }
-  drawPortraitImage(c, portrait, rower.name, -14, -19, 28);
-  c.restore();
+  const crew = raceType === 'double' && partnerRower ? [rower, partnerRower] : [rower];
+  crew.forEach((crewRower, index) => {
+    const portrait = portraits[crewRower.name];
+    if (!portrait?.complete || !portrait.naturalWidth) return;
+    const c = displayCtx, size = crew.length === 2 ? 22 : 28;
+    c.save();
+    c.imageSmoothingEnabled = true;
+    c.imageSmoothingQuality = 'high';
+    c.translate(p.x, p.y);
+    c.rotate(p.angle + Math.PI / 2);
+    c.translate(0, crew.length === 2 ? -6 + index * 12 : -1);
+    c.rotate(-p.angle - Math.PI / 2);
+    const mask = crewRower === rower ? portraitMask() : botPortraitMask(crewRower.name);
+    if (mask) {
+      c.beginPath();
+      mask.forEach(([x, y], i) => c[i ? 'lineTo' : 'moveTo'](-size / 2 + x * size, -size * .68 + y * size));
+      c.closePath();
+      c.clip();
+    }
+    drawPortraitImage(c, portrait, crewRower.name, -size / 2, -size * .68, size);
+    c.restore();
+  });
 }

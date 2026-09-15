@@ -8,12 +8,28 @@ Object.entries(materials).forEach(([id, m]) => materialSelect.add(new Option(`${
 provisionPackSelect.add(new Option('Valitse eväspaketti…', ''));
 Object.entries(provisionPacks).filter(([id]) => id !== 'legacy').forEach(([id, pack]) => provisionPackSelect.add(new Option(pack.name, id)));
 provisionPackSelect.value = 'athlete';
-rowerSelect.add(new Option('Valitse soutaja…', ''));
 boatSelect.add(new Option('Valitse vene…', ''));
-rowers.forEach((r, i) => rowerSelect.add(new Option(r.name, i)));
-boats.forEach((b, i) => boatSelect.add(new Option(b.name, i)));
+boats.forEach((b, i) => boatSelect.add(new Option(`${b.name} · ${materials[b.material].name}`, i)));
 selectDefaultCrew();
-rowerSelect.onchange = boatSelect.onchange = materialSelect.onchange = provisionPackSelect.onchange = selectCrew;
+document.getElementById('maleRowers').onclick = () => { selectRowerGender('male'); selectCrew(); };
+document.getElementById('femaleRowers').onclick = () => { selectRowerGender('female'); selectCrew(); };
+document.getElementById('singleRace').onclick = () => setRaceType('single');
+document.getElementById('doubleRace').onclick = () => setRaceType('double');
+rowerSelect.onchange = () => {
+  const previousPartner = partnerRowerSelect.value === '' ? -1 : Number(partnerRowerSelect.value);
+  if (raceType === 'double') populatePartnerRowers(previousPartner);
+  selectCrew();
+};
+partnerRowerSelect.onchange = boatSelect.onchange = materialSelect.onchange = provisionPackSelect.onchange = selectCrew;
+document.getElementById('rowerNext').onclick = () => {
+  if (rowerSelect.value !== '') showSelectionStep(2);
+};
+document.getElementById('boatNext').onclick = () => {
+  if (boatSelect.value !== '') showSelectionStep(3);
+};
+document.querySelectorAll('.selection-back').forEach(button => {
+  button.onclick = () => showSelectionStep(Number(button.dataset.selectionTarget));
+});
 document.getElementById('power').addEventListener('input', e => {
   strokePower = Number.isFinite(rower.racePower)
     ? rower.racePower
@@ -65,10 +81,19 @@ document.getElementById('previewSpeed').addEventListener('change', event => {
 document.getElementById('previewPause').onclick = () => setPreviewPaused(!previewPaused);
 document.getElementById('startOverlay').addEventListener('pointerdown', () => rowingAudio.startMenuMusic(), {once: true});
 addEventListener('keydown', () => rowingAudio.startMenuMusic(), {once: true});
-document.getElementById('againButton').onclick = () => {
-  reset();
-  selectDefaultCrew();
-  showSavedRace();
+document.getElementById('followRaceButton').onclick = followRace;
+document.getElementById('finishDetailsButton').onclick = () => {
+  const details = document.getElementById('finishDetails');
+  const button = document.getElementById('finishDetailsButton');
+  details.hidden = !details.hidden;
+  button.setAttribute('aria-expanded', String(!details.hidden));
+  button.textContent = details.hidden ? 'Oman suorituksen tiedot' : 'Piilota suorituksen tiedot';
+};
+document.getElementById('creditsButton').onclick = () => {
+  ui.finish.classList.add('hidden');
+  document.getElementById('creditsOverlay').classList.remove('hidden');
+  document.body.classList.add('credits-mode', 'start-menu');
+  rowingAudio.startMenuMusic();
 };
 document.getElementById('resetButton').onclick = pauseRace;
 mapImage.onload = cleanMapImage.onload = prepareMap;

@@ -102,7 +102,9 @@ function updateUI(now = performance.now()) {
   const raceSec = raceElapsed;
   ui.raceTime.textContent = formatTime(raceSec);
   const avg = raceSec > 45 ? distance / (raceSec / 3600) / 1000 : 0;
-  ui.pacePrediction.textContent = avg > 1 ? `Ennuste ${formatTime(raceSec + (TOTAL - distance) / (avg * 1000) * 3600)}` : 'Ennuste —';
+  ui.pacePrediction.textContent = playerFinishedAt !== null
+    ? `Oma aika ${formatTime(playerFinishedAt)}`
+    : avg > 1 ? `Ennuste ${formatTime(raceSec + (TOTAL - distance) / (avg * 1000) * 3600)}` : 'Ennuste —';
   const sweatRate = rowerSweatRate() * (raceDay?.heat || 1);
   const sweatHint = sweatRate > 1 ? 'runsas hikoilu' : sweatRate < .85 ? 'kevyt hikoilu' : 'tavanomainen hikoilu';
   setMeter('hydration', hydration, `${fluidBalance < -.1 ? 'Nestevajetta' : fluidBalance > .1 ? 'Nesteylijäämää' : 'Nestemäärä tasapainossa'} ${Math.abs(fluidBalance).toFixed(2)} l · ${sweatHint} · imeytymässä ${(gutFluid * 10).toFixed(1)} dl${sodiumBalance < 0 ? ' · natriumvajetta' : ''}`);
@@ -113,7 +115,7 @@ function updateUI(now = performance.now()) {
   ui.blisterHint.textContent = blisters < 5 ? 'Kädet kunnossa' : blisters < 20 ? 'Pieniä rakon alkuja' : blisters < 55 ? 'Rakot tuntuvat vedossa' : 'Kädet ovat pahasti rakoilla';
 }
 function updateLeaderboard() {
-  const racers = [{name: rower.name, distance, finishedAt: distance >= TOTAL ? raceElapsed : null, player: true}, ...botRacers.map(bot => ({...bot, name: bot.rower.name}))];
+  const racers = [{name: crewName(), distance, finishedAt: playerFinishedAt, player: true, raceType}, ...botRacers.map(bot => ({...bot, name: bot.rower.name, raceType: 'single'}))];
   racers.sort((a, b) => {
     if (a.finishedAt !== null || b.finishedAt !== null) {
       if (a.finishedAt === null) return 1;
@@ -127,10 +129,17 @@ function updateLeaderboard() {
     ? racers.filter(racer => womensLeaderboard.has(racer.name))
     : racers;
   const playerRank = leaderboardRacers.findIndex(racer => racer.player) + 1;
-  ui.leaderboardTitle.textContent = `TILANNE · ${playerRank}/${leaderboardRacers.length}`;
+  const finished = racers.filter(racer => racer.finishedAt !== null).length;
+  ui.leaderboardTitle.textContent = playerFinishedAt === null
+    ? raceType === 'double' ? 'PARISOUTU · 1/1' : `TILANNE · ${playerRank}/${leaderboardRacers.length}`
+    : `MAALISSA ${finished}/${racers.length} · SIJA ${playerRank}`;
   const ranked = leaderboardRacers.map((racer, index) => ({...racer, rank: index + 1}));
   const visible = leaderboardExpanded || womenOnly ? ranked : ranked.filter(racer => racer.rank <= 5 || racer.player);
-  ui.leaderboard.innerHTML = visible.map(racer => `<li${racer.player ? ' class="player"' : ''}><b>${racer.rank}.</b><span>${racer.name}</span><small>${racer.finishedAt !== null ? formatTime(racer.finishedAt) : `${(racer.distance / 1000).toFixed(1).replace('.', ',')} km`}</small></li>`).join('');
+  ui.leaderboard.innerHTML = visible.map(racer => {
+    const waiting = raceType === 'double' && racer.raceType === 'single' && raceElapsed < SINGLE_START_DELAY;
+    const status = waiting ? `lähtöön ${formatTime(SINGLE_START_DELAY - raceElapsed)}` : racer.finishedAt !== null ? formatTime(racer.finishedAt - (raceType === 'double' && racer.raceType === 'single' ? SINGLE_START_DELAY : 0)) : `${(racer.distance / 1000).toFixed(1).replace('.', ',')} km`;
+    return `<li${racer.player ? ' class="player"' : ''}><b>${racer.rank}.</b><span>${racer.name}</span><small>${status}</small></li>`;
+  }).join('');
 }
 function updateCrampUI() {
   document.getElementById('crampValue').textContent = `${Math.round(cramps)} %`;

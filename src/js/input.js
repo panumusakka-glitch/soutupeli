@@ -17,7 +17,7 @@ function cancelStroke(e) {
 }
 function down(e) {
   const pointer = e.type === 'pointerdown';
-  if (!running || !pointer && e.code !== 'Space') return;
+  if (!running || playerFinishedAt !== null || !pointer && e.code !== 'Space') return;
   if (!pointer && e.target?.closest?.('button,select,input,textarea,[contenteditable]')) return;
   if (pointer && (e.button !== 0 || e.isPrimary === false)) return;
   e.preventDefault();
@@ -42,7 +42,7 @@ function up(e) {
     releaseInput();
     lastDrive = (performance.now() - phaseStart) / 1000;
     phaseStart = performance.now();
-    const tolerance = (.65 + rower.skill / 99 * .7) * (.72 + .28 * techniqueControl);
+    const tolerance = (.65 + crewStat('skill') / 99 * .7) * (.72 + .28 * techniqueControl);
     const drive = Math.exp(-Math.pow((lastDrive - TARGET_DRIVE) / (.38 * tolerance), 2)),
       recovery = Math.exp(-Math.pow((lastRecovery - TARGET_RECOVERY) / (.65 * tolerance), 2)),
       cycle = Math.exp(-Math.pow((lastDrive + lastRecovery - TARGET_CYCLE) / (.45 * tolerance), 2));
@@ -50,7 +50,7 @@ function up(e) {
     rowerChatter.badStroke(quality, raceElapsed);
     strokePulse = 1;
     feedbackTimer = 1.4;
-    speed = clamp(speed + (.10 + .26 * quality) * (rower.power / 99) * (effectiveStrokePower() / 70) * crampFactor() * (.7 + .3 * rower.speed / 99), 0, maxRowerSpeed());
+    speed = clamp(speed + (.10 + .26 * quality) * (crewStat('power') / 99) * (effectiveStrokePower() / 70) * crampFactor() * (.7 + .3 * crewStat('speed') / 99), 0, maxRowerSpeed());
     if (quality > .88) {
       ui.feedback.textContent = 'PUHDAS VETO';
       ui.feedbackDetail.textContent = 'Irrotus osui ja vene jatkaa liukua.';

@@ -1,6 +1,9 @@
 function reset() {
   rowingAudio.stopCrowd();
   raceElapsed = 0;
+  playerFinishedAt = null;
+  playerFinishPlace = null;
+  playerRouteRecord = false;
   document.getElementById('pauseOverlay').classList.add('hidden');
   setMapOverview(false);
   rowerChatter.reset();
@@ -60,6 +63,7 @@ function reset() {
   intakeMessage = '';
 
   rowerSelect.disabled =
+    partnerRowerSelect.disabled =
     boatSelect.disabled =
     materialSelect.disabled =
     provisionPackSelect.disabled =
@@ -74,6 +78,10 @@ function reset() {
 
   ui.start.classList.remove('hidden');
   ui.finish.classList.add('hidden');
+  document.getElementById('creditsOverlay').classList.add('hidden');
+  document.body.classList.remove('credits-mode');
+  document.getElementById('followRaceButton').hidden = true;
+  document.getElementById('finalEnding').hidden = false;
 
   updateInventory();
   updateUI();
@@ -84,6 +92,7 @@ const START_GRID_DISTANCE = 12;
 const START_GRID_ROW_GAP = 4;
 const PREVIEW_RACE_SECONDS = 5 * 3600;
 const RACE_TACTICS = new Set(['aggressive', 'conservative', 'sprint', 'steady']);
+const SINGLE_START_DELAY = 20 * 60;
 function randomPlayerRouteChoice() {
   return Math.random() < .95 ? 'primary' : 'alternative';
 }
@@ -116,7 +125,7 @@ function initialRaceLane(index) {
 }
 function resetBotRacers() {
   botRacers = rowers
-    .filter(r => r.name !== rower.name)
+    .filter(r => r.name !== rower.name && (raceType !== 'double' || r.name !== partnerRower?.name))
     .map((r, index) => ({
       rower: r,
       distance: START_GRID_DISTANCE + (Math.floor(index / RACE_LANES.length) - 2) * START_GRID_ROW_GAP,
@@ -135,7 +144,7 @@ function resetBotRacers() {
       sodiumBalance: 700,
       hydration: 100,
       cramps: 0,
-      nextFuelAt: 0,
+      nextFuelAt: raceType === 'double' ? SINGLE_START_DELAY : 0,
       day: null,
       finishedAt: null
     }));
@@ -220,7 +229,7 @@ function prepareRaceDay() {
     bot.sodiumBalance = 700;
     bot.hydration = bot.day.hydration;
     bot.cramps = bot.day.cramps;
-    bot.nextFuelAt = 0;
+    bot.nextFuelAt = raceType === 'double' ? SINGLE_START_DELAY : 0;
   }
 }
 function previewRaceDay(day) {
@@ -271,15 +280,25 @@ function seekPreview(progress) {
   const p = clamp(progress);
   distance = p * TOTAL;
   raceElapsed = p * PREVIEW_RACE_SECONDS;
+  playerFinishedAt = p >= 1 ? PREVIEW_RACE_SECONDS : null;
+  playerFinishPlace = null;
+  playerRouteRecord = false;
   speed = p >= 1 ? 0 : 9;
   for (const [index, bot] of botRacers.entries()) {
     const spread = .988 + ((index % 5) - 2) * .003;
     bot.distance = Math.min(TOTAL, p * TOTAL * spread);
     bot.speed = p >= 1 ? 0 : 8.7 + (index % 4) * .18;
-    bot.finishedAt = p >= 1 ? raceElapsed : null;
+    bot.finishedAt = p >= 1
+      ? PREVIEW_RACE_SECONDS - 420 + index * 38
+      : null;
   }
   stabilizePreviewBodies();
   updatePreviewTimeline();
+  if (p >= 1) {
+    playerFinishPlace = 1 + botRacers.filter(bot => bot.finishedAt <= playerFinishedAt).length;
+    raceElapsed = Math.max(playerFinishedAt, ...botRacers.map(bot => bot.finishedAt));
+    finishCompetition();
+  }
 }
 function setPreviewPaused(paused) {
   if (!previewMode) return;
@@ -388,6 +407,7 @@ function openLaneFor(bot, racers) {
   ));
 }
 function updateBotRacers(dt, s) {
+  if (raceType === 'double' && raceElapsed < SINGLE_START_DELAY) return;
   for (const bot of botRacers) {
     if (bot.finishedAt !== null) continue;
 
@@ -442,7 +462,11 @@ function updateBotRacers(dt, s) {
       const lane = openLaneFor(bot, racers);
       if (lane !== undefined) bot.laneTarget = lane;
     }
-    bot.lane += clamp(bot.laneTarget - bot.lane, -.9 * dt, .9 * dt);
+    // Lane changes are a visible rowing manoeuvre, so preview fast-forward must
+    // not compress the whole movement into a single frame. Ease into the new
+    // line instead of stepping sideways at a constant, simulation-scaled rate.
+    const laneDt = previewMode && previewPlaybackRate > 0 ? dt / previewPlaybackRate : dt;
+    bot.lane += (bot.laneTarget - bot.lane) * (1 - Math.exp(-1.8 * laneDt));
 
     const effort =
       clamp((bot.speed - 7.2) / 4.6);
@@ -481,7 +505,8 @@ function start() {
     rowerSelect.value === '' ||
     boatSelect.value === '' ||
     materialSelect.value === ''
-    || provisionPackSelect.value === ''
+    || provisionPackSelect.value === '' ||
+    (raceType === 'double' && (!partnerRower || partnerRower === rower))
   ) {
     return;
   }
@@ -513,6 +538,7 @@ function start() {
   resize();
 
   rowerSelect.disabled =
+    partnerRowerSelect.disabled =
     boatSelect.disabled =
     materialSelect.disabled =
     provisionPackSelect.disabled =
@@ -554,7 +580,7 @@ function startPreview() {
   rowingAudio.stopMenuMusic();
   document.body.classList.add('race-mode');
   resize();
-  rowerSelect.disabled = boatSelect.disabled = materialSelect.disabled = provisionPackSelect.disabled = true;
+  rowerSelect.disabled = partnerRowerSelect.disabled = boatSelect.disabled = materialSelect.disabled = provisionPackSelect.disabled = true;
   startTime = performance.now();
   phaseStart = startTime;
   last = startTime;
@@ -660,9 +686,9 @@ function showFinishReport(sec, place, newRouteRecord = false) {
   if (blisters >= 30) observations.push('Käsien rakot haittasivat soutua selvästi.');
   if (observations.length === 1 && freshness >= 35 && energy >= 35 && hydration >= 85) observations.push('Voimavarat pysyivät hyvin hallinnassa maaliin asti.');
 
-  document.getElementById('finishSummary').textContent = `${rower.name} maalissa Sulkavan soutustadionilla.`;
+  document.getElementById('finishSummary').textContent = `${crewName()} maalissa Sulkavan soutustadionilla.`;
   document.getElementById('finishStats').innerHTML = `
-    <div><span>Sijoitus</span><b>${place}/${rowers.length}</b></div>
+    <div><span>Sijoitus</span><b>${place}/${raceType === 'double' ? 1 : rowers.length}</b></div>
     <div><span>Ero voittajaan</span><b>${gap > .5 ? `+${formatTime(gap)}` : '—'}</b></div>
     <div><span>Keskinopeus</span><b>${averageSpeed.toFixed(1).replace('.', ',')} km/h</b></div>
     <div><span>Huippunopeus</span><b>${raceStats.maxSpeed.toFixed(1).replace('.', ',')} km/h</b></div>
@@ -675,6 +701,37 @@ function showFinishReport(sec, place, newRouteRecord = false) {
     <div><span>Krampit / rakot</span><b>${Math.round(cramps)} / ${Math.round(blisters)} %</b></div>
     <div><span>Ravinto kilpailussa</span><b>${Math.round(consumedCarbs)} g · ${consumedFluid.toFixed(1).replace('.', ',')} l · ${portions} annosta</b></div>`;
   document.getElementById('finishAnalysis').textContent = observations.join(' ');
+  document.getElementById('finishDetails').hidden = true;
+  const detailsButton = document.getElementById('finishDetailsButton');
+  detailsButton.setAttribute('aria-expanded', 'false');
+  detailsButton.textContent = 'Oman suorituksen tiedot';
+}
+
+function followRace() {
+  if (playerFinishedAt === null || !running) return;
+  ui.finish.classList.add('hidden');
+  setLeaderboardExpanded(true);
+  setMapOverview(true);
+}
+
+function finishCompetition() {
+  if (playerFinishedAt === null) return;
+  const wasPreview = previewMode;
+  running = false;
+  speed = 0;
+  showFinishReport(playerFinishedAt, playerFinishPlace, playerRouteRecord);
+  document.getElementById('finishSummary').textContent += ' Kaikki kilpailijat ovat nyt maalissa.';
+  document.getElementById('followRaceButton').hidden = true;
+  document.getElementById('finalEnding').hidden = false;
+  if (wasPreview) {
+    previewMode = false;
+    previewPaused = false;
+    previewPlaybackRate = 180;
+    document.getElementById('previewControls').hidden = true;
+    document.body.classList.remove('preview-mode');
+  }
+  ui.finish.classList.remove('hidden');
+  updateUI();
 }
 
 // Per-frame orchestration: physics, dialogue, finish handling and HUD.
@@ -688,15 +745,16 @@ function update(dt, now) {
     ? {name: 'Esikatselu', speedLoss: 0, wind: false, windHead: 0, windCross: 0, windLoad: 0}
     : section();
   const raceSec = raceElapsed;
-  const active =
+  const playerRacing = playerFinishedAt === null;
+  const active = playerRacing &&
     strokeTimes.length &&
     now - strokeTimes.at(-1) < 4500;
 
   if (previewMode) stabilizePreviewBodies();
-  else updateBody(dt, s, raceSec, active);
+  else if (playerRacing) updateBody(dt, s, raceSec, active);
   updateBotRacers(dt, s);
 
-  if (!previewMode && hydration <= 25 && cramps >= 70) {
+  if (!previewMode && playerRacing && hydration <= 25 && cramps >= 70) {
     withdrawRace('Nestehukka ja kramppirasitus ovat terveydelle liian vaarallisia. Älä jatka suoritusta ilman ammattilaisen arviota.', true);
     return;
   }
@@ -735,7 +793,7 @@ function update(dt, now) {
         bodyFactor *
         handFactor *
         crampFactor() *
-        (.72 + .28 * rower.speed / 99) *
+        (.72 + .28 * crewStat('speed') / 99) *
         boatSpeedFactor() *
         effectiveStrokePower() / 70 *
         raceDayFactor(raceDay) *
@@ -774,10 +832,14 @@ function update(dt, now) {
    * Tämä auttaa erityisesti silloin, kun pelaaja rauhoittaa
    * liian korkean tahdin takaisin normaaliksi.
    */
-  speed +=
-    (ferryAdjustedDesired - speed) /
-    (active ? 5 : 3) *
-    dt;
+  if (playerRacing) {
+    speed +=
+      (ferryAdjustedDesired - speed) /
+      (active ? 5 : 3) *
+      dt;
+  } else {
+    speed = 0;
+  }
 
   speed =
     clamp(
@@ -794,14 +856,16 @@ function update(dt, now) {
     raceStats.qualityIntegral += quality * dt;
   }
 
-  const previousDistance = distance;
-  distance = ferryLimitedDistance(previousDistance, previousDistance + speed / 3.6 * dt);
-  if (distance === KIETAVALA_FERRY_STOP_DISTANCE && previousDistance < distance) speed = 0;
-  if (raceStats.halfwayAt === null && previousDistance < TOTAL / 2 && distance >= TOTAL / 2) {
-    raceStats.halfwayAt = raceElapsed;
+  if (playerRacing) {
+    const previousDistance = distance;
+    distance = ferryLimitedDistance(previousDistance, previousDistance + speed / 3.6 * dt);
+    if (distance === KIETAVALA_FERRY_STOP_DISTANCE && previousDistance < distance) speed = 0;
+    if (raceStats.halfwayAt === null && previousDistance < TOTAL / 2 && distance >= TOTAL / 2) {
+      raceStats.halfwayAt = raceElapsed;
+    }
   }
 
-  rowerChatter.tick(dt, {
+  if (playerRacing) rowerChatter.tick(dt, {
     time: raceSec,
     speed,
     active,
@@ -820,60 +884,63 @@ function update(dt, now) {
     cramps
   });
 
-  if (distance >= TOTAL) {
+  if (playerRacing && distance >= TOTAL) {
     distance = TOTAL;
     if (previewMode) {
-      setPreviewPaused(true);
+      playerFinishedAt = raceElapsed;
+      playerFinishPlace = 1 + botRacers.filter(bot => bot.finishedAt !== null && bot.finishedAt <= playerFinishedAt).length;
+      playerRouteRecord = false;
       speed = 0;
       updatePreviewTimeline();
-      updateUI(now);
-      return;
+    } else {
+      const sec = raceElapsed;
+
+      const place = raceType === 'double' ? 1 :
+        1 + botRacers.filter(bot => bot.finishedAt !== null && bot.finishedAt <= sec).length;
+
+      rowerChatter.announceFinish(
+        crewName(),
+        formatTime(sec),
+        place
+      );
+
+      const newRouteRecord = recordEligible && updateRouteRecord(
+        crewCategory(),
+        crewName(),
+        sec,
+        raceType
+      );
+      recordEligible = false;
+      playerFinishedAt = sec;
+      playerFinishPlace = place;
+      playerRouteRecord = newRouteRecord;
+
+      setProvisions(false);
+      cancelStroke();
+
+      updateInventory();
+      clearRace();
+
+      document
+        .getElementById('finishTime')
+        .textContent =
+        formatTime(sec);
+
+      showFinishReport(sec, place, newRouteRecord);
+      const botsStillRacing = botRacers.some(bot => bot.finishedAt === null);
+      document.getElementById('followRaceButton').hidden = !botsStillRacing;
+      document.getElementById('finalEnding').hidden = botsStillRacing;
+      document.body.classList.remove('preview-mode');
+
+      ui.finish.classList.remove(
+        'hidden'
+      );
     }
+  }
 
-    const sec =
-      raceElapsed;
-
-    const place =
-      1 +
-      botRacers.filter(
-        bot =>
-          bot.finishedAt !== null &&
-          bot.finishedAt <= sec
-      ).length;
-
-    rowerChatter.announceFinish(
-      rower.name,
-      formatTime(sec),
-      place
-    );
-
-    const newRouteRecord = recordEligible && updateRouteRecord(
-      rower.voiceGender,
-      rower.name,
-      sec
-    );
-    recordEligible = false;
-
-    setProvisions(false);
-    cancelStroke();
-
-    running = false;
-
-    updateInventory();
-    if (!previewMode) clearRace();
-
-    document
-      .getElementById('finishTime')
-      .textContent =
-      formatTime(sec);
-
-    showFinishReport(sec, place, newRouteRecord);
-    previewMode = false;
-    document.body.classList.remove('preview-mode');
-
-    ui.finish.classList.remove(
-      'hidden'
-    );
+  if (playerFinishedAt !== null && botRacers.every(bot => bot.finishedAt !== null)) {
+    finishCompetition();
+    return;
   }
 
   if (previewMode) updatePreviewTimeline();

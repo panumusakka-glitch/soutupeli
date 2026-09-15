@@ -37,7 +37,7 @@ function prepareMap() {
   if (!mapImage.complete || !mapImage.naturalWidth || !cleanMapImage.complete || !cleanMapImage.naturalWidth) return;
   retroMap.width = 805;
   retroMap.height = 851;
-  const mapCtx = retroMap.getContext('2d');
+  const mapCtx = retroMap.getContext('2d', {willReadFrequently: true});
   mapCtx.drawImage(mapImage, 0, 0);
   // Only replace the two edited marker regions; preserve every other source pixel.
   for (const [x, y, w, h] of [[308, 193, 44, 44], [363, 40, 38, 38]]) mapCtx.drawImage(cleanMapImage, x / 805 * cleanMapImage.naturalWidth, y / 851 * cleanMapImage.naturalHeight, w / 805 * cleanMapImage.naturalWidth, h / 851 * cleanMapImage.naturalHeight, x, y, w, h);
@@ -416,6 +416,28 @@ function formationPoint(racerDistance, racerIndex, racerCount, racerLane, m, rou
     angle
   };
 }
+function strokeMotionOffset(phase) {
+  const driveFraction = TARGET_DRIVE / TARGET_CYCLE;
+  if (phase < driveFraction) {
+    const t = clamp(phase / driveFraction);
+    return 1.15 * (.5 - .5 * Math.cos(Math.PI * t));
+  }
+  const t = clamp((phase - driveFraction) / (1 - driveFraction));
+  return 1.15 * (.5 + .5 * Math.cos(Math.PI * t));
+}
+function playerMotionDistance(now) {
+  if (!strokeTimes.length) return distance;
+  const phaseSeconds = Math.max(0, (now - phaseStart) / 1000);
+  if (pressing) return clamp(distance + strokeMotionOffset(Math.min(phaseSeconds, TARGET_DRIVE) / TARGET_CYCLE), 0, TOTAL);
+  const driveOffset = strokeMotionOffset(Math.min(lastDrive, TARGET_DRIVE) / TARGET_CYCLE),
+    recovery = clamp(phaseSeconds / TARGET_RECOVERY),
+    recoveryFactor = .5 + .5 * Math.cos(Math.PI * recovery);
+  return clamp(distance + driveOffset * recoveryFactor, 0, TOTAL);
+}
+function botMotionDistance(bot, index, now) {
+  const phase = ((now / 1000 / TARGET_CYCLE + index * .173) % 1 + 1) % 1;
+  return clamp(bot.distance + strokeMotionOffset(phase), 0, TOTAL);
+}
 const DISTANCE_BUOYS = [5000, 10000, 15000, 20000, 25000, 29000, 30000, 35000, 40000, 45000, 50000, 55000];
 function distanceBuoyPoints(buoyDistance) {
   if (DISTANCE_MAP_POINTS[buoyDistance]) {
@@ -485,15 +507,15 @@ function drawFinishMarker(m) {
   c.translate(stadium.x, stadium.y);
   c.rotate(p.angle);
   // Retro version of the red, veranda-fronted Soutustadion building.
-  c.fillStyle = '#f8f0c0'; c.fillRect(-16 * scale, -6 * scale, 32 * scale, 12 * scale);
-  c.fillStyle = '#a93632'; c.fillRect(-13 * scale, -13 * scale, 26 * scale, 13 * scale);
-  c.fillStyle = '#f8f0c0'; c.fillRect(-16 * scale, -15 * scale, 32 * scale, 4 * scale);
+  c.fillStyle = '#f8f0c0'; c.fillRect(-32 * scale, -6 * scale, 64 * scale, 12 * scale);
+  c.fillStyle = '#a93632'; c.fillRect(-26 * scale, -13 * scale, 52 * scale, 13 * scale);
+  c.fillStyle = '#f8f0c0'; c.fillRect(-32 * scale, -15 * scale, 64 * scale, 4 * scale);
   c.fillStyle = '#802a2d';
-  c.beginPath(); c.moveTo(-17 * scale, -15 * scale); c.lineTo(0, -23 * scale); c.lineTo(17 * scale, -15 * scale); c.closePath(); c.fill();
-  c.fillStyle = '#b8dcf0'; c.fillRect(-6 * scale, -22 * scale, 12 * scale, 7 * scale);
-  c.fillStyle = '#802a2d'; c.fillRect(-8 * scale, -24 * scale, 16 * scale, 3 * scale);
+  c.beginPath(); c.moveTo(-34 * scale, -15 * scale); c.lineTo(0, -23 * scale); c.lineTo(34 * scale, -15 * scale); c.closePath(); c.fill();
+  c.fillStyle = '#b8dcf0'; c.fillRect(-12 * scale, -22 * scale, 24 * scale, 7 * scale);
+  c.fillStyle = '#802a2d'; c.fillRect(-16 * scale, -24 * scale, 32 * scale, 3 * scale);
   c.fillStyle = '#182848';
-  for (let x = -10; x <= 10; x += 7) c.fillRect(x * scale, -10 * scale, 2 * scale, 10 * scale);
+  for (let x = -22; x <= 22; x += 8.8) c.fillRect(x * scale, -10 * scale, 2 * scale, 10 * scale);
   c.restore();
   c.save();
   c.strokeStyle = '#fff8d8'; c.lineWidth = Math.max(1, 1.5 * scale); c.setLineDash([3 * scale, 3 * scale]);
@@ -682,7 +704,13 @@ const HIRVINIEMI_CROWD_AREA = [
   [.5497, .8899], [.5499, .8863], [.5469, .8843], [.5431, .8840],
   [.5393, .8839], [.5355, .8839]
 ];
-const SHORE_CABINS = [
+const MAP_DECORATIONS_KEY = 'suursoutu-map-decorations-v1';
+const LINNAVUORI = [.3283, .2181];
+let LINNAVUORI_SHAPE = [
+  [-16, 5], [-12, -5], [-6, -11], [-1, -18], [5, -13], [10, -8], [16, 5],
+  [13, 4], [10, 6], [6, 4], [2, 6], [-2, 4], [-6, 6], [-10, 4], [-13, 6]
+];
+let SHORE_CABINS = [
   [.3089, .2304], [.1948, .2145], [.1363, .2611], [.1397, .3159],
   [.1720, .3563], [.1631, .2918], [.1713, .4414], [.1890, .4814],
   [.1941, .5274], [.1964, .5881], [.1744, .7445], [.1669, .7780],
@@ -716,21 +744,59 @@ function shoreCabinSpectatorCount(index) {
   if (value < .96) return 3;
   return 5;
 }
-function drawShoreCabin(c, x, y, size, wallColor) {
+let SHORE_PEOPLE = [];
+for (let cabinIndex = 0; cabinIndex < SHORE_CABINS.length; cabinIndex++) {
+  const [mapX, mapY] = SHORE_CABINS[cabinIndex],
+    count = shoreCabinSpectatorCount(cabinIndex),
+    side = shoreCabinRandom(cabinIndex, 1) < .5 ? -1 : 1,
+    cabinSize = 9,
+    spectatorSize = .38,
+    spectatorWidth = spectatorSize * 3.1;
+  for (let person = 0; person < count; person++) SHORE_PEOPLE.push([
+    mapX + side * (cabinSize * 1.3 + spectatorWidth * (1 + person * 1.15)) / 805,
+    mapY + cabinSize * (1.05 + (person % 2) * .16) / 851
+  ]);
+}
+let SHORE_PIERS = [], SHORE_EXTRAS = [], SHORE_TREES = [], SHORE_TREES_SAVED = false, MAP_DECORATIONS_SAVED = false;
+try {
+  const savedDecorations = JSON.parse(localStorage.getItem(MAP_DECORATIONS_KEY));
+  MAP_DECORATIONS_SAVED = Boolean(savedDecorations && typeof savedDecorations === 'object');
+  if (Array.isArray(savedDecorations?.cabins)) SHORE_CABINS = savedDecorations.cabins;
+  if (Array.isArray(savedDecorations?.people)) SHORE_PEOPLE = savedDecorations.people;
+  if (Array.isArray(savedDecorations?.piers)) SHORE_PIERS = savedDecorations.piers;
+  if (Array.isArray(savedDecorations?.extras)) SHORE_EXTRAS = savedDecorations.extras;
+  if (Array.isArray(savedDecorations?.trees)) { SHORE_TREES = savedDecorations.trees; SHORE_TREES_SAVED = true; }
+  if (Array.isArray(savedDecorations?.linnavuoriShape) && savedDecorations.linnavuoriShape.length >= 3) LINNAVUORI_SHAPE = savedDecorations.linnavuoriShape;
+} catch {}
+SHORE_CABINS = SHORE_CABINS.map((cabin, index) => [
+  cabin[0], cabin[1], cabin[2] ?? index % 4, cabin[3] ?? [.78, .9, 1, 1.15, 1.28][(index * 3) % 5]
+]);
+const SHORE_CABIN_COLORS = ['#b94738', '#d47438', '#8f3f32', '#c45b34', '#a85a42'];
+function drawShoreCabin(c, x, y, size, wallColor, variant = 0) {
+  const halfWidth = size * (variant === 1 ? 1.28 : variant === 2 ? .86 : 1),
+    wallHeight = size * (variant === 3 ? 1.8 : 1.45),
+    roofHeight = size * (variant === 2 ? .72 : 1);
   c.fillStyle = 'rgba(9,18,35,.25)';
-  c.fillRect(x - size * .9, y + size * 1.25, size * 2.2, size * .45);
+  c.fillRect(x - halfWidth * .9, y + wallHeight * .86, halfWidth * 2.2, size * .45);
   c.fillStyle = wallColor;
-  c.fillRect(x - size, y, size * 2, size * 1.45);
+  c.fillRect(x - halfWidth, y, halfWidth * 2, wallHeight);
   c.fillStyle = '#f8d848';
-  c.fillRect(x - size * .62, y + size * .35, size * .48, size * .5);
+  c.fillRect(x - halfWidth * .62, y + size * .35, size * .48, size * .5);
   c.fillStyle = '#5b3428';
-  c.fillRect(x + size * .28, y + size * .45, size * .45, size);
+  c.fillRect(x + halfWidth * .28, y + size * .45, size * .45, wallHeight - size * .45);
   c.fillStyle = '#17213c';
   c.beginPath();
-  c.moveTo(x - size * 1.3, y); c.lineTo(x, y - size); c.lineTo(x + size * 1.3, y); c.closePath();
+  c.moveTo(x - halfWidth * 1.3, y); c.lineTo(x, y - roofHeight); c.lineTo(x + halfWidth * 1.3, y); c.closePath();
   c.fill();
   c.fillStyle = '#d8d0b0';
-  c.fillRect(x + size * .55, y - size * .72, size * .28, size * .72);
+  const chimneySide = variant === 3 ? -.72 : .55;
+  c.fillRect(x + halfWidth * chimneySide, y - roofHeight * .72, size * .28, roofHeight * .72);
+  if (variant === 1) {
+    c.fillStyle = '#8b633e'; c.fillRect(x - halfWidth * 1.2, y + wallHeight, halfWidth * 2.4, size * .22);
+  } else if (variant === 2) {
+    c.strokeStyle = '#d8d0b0'; c.lineWidth = Math.max(1, size * .12);
+    c.strokeRect(x - halfWidth * .72, y + size * .22, halfWidth * .48, size * .68);
+  }
 }
 function drawShoreSpectator(c, x, y, size, color, now, index) {
   const bodyWidth = size * 1.7,
@@ -752,33 +818,269 @@ function drawShoreSpectator(c, x, y, size, color, now, index) {
   c.moveTo(x + size * .34, y + bodyHeight); c.lineTo(x + size * .58, y + bodyHeight + size * .75);
   c.stroke();
 }
+const SHORE_TREE_SPECIES = ['pine', 'birch', 'spruce', 'alder', 'rowan', 'aspen'];
+function shoreTreeRandom(x, y, salt = 0) {
+  let value = Math.imul(x + 37, 374761393) ^ Math.imul(y + 91, 668265263) ^ Math.imul(salt + 13, 1274126177);
+  value ^= value >>> 13;
+  return (value >>> 0) / 4294967296;
+}
+function buildShoreTrees() {
+  SHORE_TREES = [];
+  // The follow camera only exposes a narrow strip around the rowing route.
+  // Do not decorate remote shores which the player can never see while racing.
+  const cameraCorridor = 56,
+    routeStep = Math.max(1, Math.floor(waterRoute.length / 700)),
+    insideCameraCorridor = (x, y) => {
+      for (let i = 0; i < waterRoute.length; i += routeStep) {
+        if ((x - waterRoute[i][0]) ** 2 + (y - waterRoute[i][1]) ** 2 <= cameraCorridor ** 2) return true;
+      }
+      return false;
+    },
+    isLand = (x, y) => x >= 0 && x < 805 && y >= 0 && y < 851 && !waterPixels[y * 805 + x],
+    nearWater = (x, y) => {
+      for (let radius = 3; radius <= 8; radius++) for (const [dx, dy] of [[-radius, 0], [radius, 0], [0, -radius], [0, radius], [-radius, -radius], [radius, -radius], [-radius, radius], [radius, radius]]) {
+        if (!isLand(x + dx, y + dy)) return true;
+      }
+      return false;
+    };
+  for (let gridY = 8; gridY < 843; gridY += 13) for (let gridX = 8; gridX < 797; gridX += 13) {
+    const x = gridX + Math.floor(shoreTreeRandom(gridX, gridY, 0) * 9) - 4,
+      y = gridY + Math.floor(shoreTreeRandom(gridX, gridY, 1) * 9) - 4;
+    if (shoreTreeRandom(gridX, gridY, 2) > .7 || !insideCameraCorridor(x, y) || !nearWater(x, y)) continue;
+    let firmlyOnLand = true;
+    for (let dy = 0; dy <= 6 && firmlyOnLand; dy += 3) for (let dx = -1; dx <= 1; dx += 2) {
+      if (!isLand(x + dx, y + dy)) { firmlyOnLand = false; break; }
+    }
+    if (!firmlyOnLand || SHORE_CABINS.some(([cx, cy]) => Math.hypot(x - cx * 805, y - cy * 851) < 18)) continue;
+    SHORE_TREES.push([
+      SHORE_TREE_SPECIES[SHORE_TREES.length % SHORE_TREE_SPECIES.length],
+      x / 805,
+      y / 851,
+      .72 + shoreTreeRandom(gridX, gridY, 4) * .5
+    ]);
+  }
+}
+function drawShoreTree(c, species, x, y, scale) {
+  const deciduous = !['pine', 'spruce'].includes(species),
+    trunkColor = species === 'birch' || species === 'aspen' ? '#e8dfbf' : '#684329',
+    leafColors = {pine: '#315f38', spruce: '#214d35', birch: '#6f9b3f', alder: '#477a3b', rowan: '#56893b', aspen: '#79a84a'},
+    leafColor = leafColors[species] || '#2f733d';
+  c.fillStyle = 'rgba(9,18,35,.2)'; c.fillRect(x - 4 * scale, y + 5 * scale, 10 * scale, 2 * scale);
+  c.fillStyle = trunkColor; c.fillRect(x - scale, y - 1 * scale, scale * 2, scale * 8);
+  if (species === 'birch') {
+    c.fillStyle = '#5b5141';
+    for (const stripe of [1, 4]) c.fillRect(x - scale, y + stripe * scale, scale * 1.4, scale);
+  }
+  c.fillStyle = leafColor;
+  if (!deciduous) {
+    const width = species === 'spruce' ? 6.5 : 5.5;
+    for (const [top, halfWidth] of [[-11, width * .55], [-7, width], [-3, width * .8]]) {
+      c.beginPath(); c.moveTo(x, y + top * scale); c.lineTo(x - halfWidth * scale, y + (top + 8) * scale); c.lineTo(x + halfWidth * scale, y + (top + 8) * scale); c.closePath(); c.fill();
+    }
+  } else {
+    const crown = species === 'alder' ? [[0, -6, 5], [-4, -3, 4], [4, -3, 4]] : [[0, -7, 5], [-3.5, -4, 4], [3.5, -4, 4]];
+    for (const [dx, dy, radius] of crown) { c.beginPath(); c.arc(x + dx * scale, y + dy * scale, radius * scale, 0, Math.PI * 2); c.fill(); }
+    if (species === 'rowan') {
+      c.fillStyle = '#d85838';
+      for (const [dx, dy] of [[-4, -4], [2, -8], [4, -3]]) { c.beginPath(); c.arc(x + dx * scale, y + dy * scale, 1.1 * scale, 0, Math.PI * 2); c.fill(); }
+    }
+  }
+}
+function drawLinnavuori(c, x, y, scale, shape = LINNAVUORI_SHAPE) {
+  if (shape.length < 3) return;
+  c.save();
+  c.fillStyle = 'rgba(9,18,35,.28)';
+  c.beginPath();
+  c.ellipse(x + 2 * scale, y + 5 * scale, 17 * scale, 5 * scale, 0, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = '#6f787a';
+  c.beginPath();
+  shape.forEach(([shapeX, shapeY], index) => {
+    const pointX = x + shapeX * scale, pointY = y + shapeY * scale;
+    if (index) c.lineTo(pointX, pointY); else c.moveTo(pointX, pointY);
+  });
+  c.closePath();
+  c.fill();
+  c.clip();
+  c.fillStyle = '#a4acad';
+  c.beginPath();
+  c.moveTo(x - 12 * scale, y - 5 * scale);
+  c.lineTo(x - 6 * scale, y - 11 * scale);
+  c.lineTo(x - 1 * scale, y - 18 * scale);
+  c.lineTo(x + 1 * scale, y - 8 * scale);
+  c.lineTo(x - 4 * scale, y - 3 * scale);
+  c.closePath();
+  c.fill();
+  c.strokeStyle = '#4f595c';
+  c.lineWidth = Math.max(1, scale);
+  c.beginPath();
+  c.moveTo(x + 4 * scale, y - 11 * scale);
+  c.lineTo(x + 1 * scale, y - 4 * scale);
+  c.lineTo(x + 5 * scale, y + 3 * scale);
+  c.moveTo(x + 10 * scale, y - 7 * scale);
+  c.lineTo(x + 7 * scale, y);
+  c.stroke();
+  c.restore();
+}
+function drawMapExtra(c, type, x, y, scale, now = performance.now(), facing = 'right') {
+  c.save();
+  if (facing === 'left' && (type === 'moose' || type === 'fox' || type === 'hare')) {
+    c.translate(x, 0); c.scale(-1, 1); c.translate(-x, 0);
+  }
+  c.lineWidth = Math.max(1, scale);
+  if (type === 'tree') {
+    drawShoreTree(c, 'pine', x, y, scale);
+  } else if (type === 'rock') {
+    c.fillStyle = '#7b8586'; c.beginPath();
+    c.moveTo(x - 6 * scale, y + 4 * scale); c.lineTo(x - 4 * scale, y - 2 * scale);
+    c.lineTo(x + 2 * scale, y - 5 * scale); c.lineTo(x + 6 * scale, y + 4 * scale); c.closePath(); c.fill();
+  } else if (type === 'campfire') {
+    const flicker = Math.sin(now * .013 + x * .1) * scale;
+    c.fillStyle = '#7b8586';
+    for (let i = 0; i < 7; i++) {
+      const angle = i / 7 * Math.PI * 2;
+      c.beginPath(); c.arc(x + Math.cos(angle) * 5.5 * scale, y + 3 * scale + Math.sin(angle) * 2.4 * scale, 1.7 * scale, 0, Math.PI * 2); c.fill();
+    }
+    c.strokeStyle = '#4b2d20'; c.lineWidth = Math.max(2, 2.4 * scale); c.lineCap = 'round';
+    c.beginPath(); c.moveTo(x - 5 * scale, y + 5 * scale); c.lineTo(x + 5 * scale, y + scale); c.moveTo(x + 5 * scale, y + 5 * scale); c.lineTo(x - 5 * scale, y + scale); c.stroke();
+    c.fillStyle = '#e85030'; c.beginPath();
+    c.moveTo(x - 4 * scale, y + 3 * scale); c.quadraticCurveTo(x - 3 * scale, y - 4 * scale, x + flicker, y - 9 * scale);
+    c.quadraticCurveTo(x + 5 * scale, y - 3 * scale, x + 4 * scale, y + 3 * scale); c.closePath(); c.fill();
+    c.fillStyle = '#ffe040'; c.beginPath();
+    c.moveTo(x - 2 * scale, y + 3 * scale); c.quadraticCurveTo(x, y - 2 * scale, x - flicker * .35, y - 5 * scale);
+    c.quadraticCurveTo(x + 3 * scale, y, x + 2 * scale, y + 3 * scale); c.closePath(); c.fill();
+    for (let i = 0; i < 4; i++) {
+      const cycle = ((now * .000055 + i * .24 + (x + y) * .0007) % 1 + 1) % 1,
+        smokeX = x + Math.sin(cycle * Math.PI * 3 + i) * (2 + cycle * 5) * scale,
+        smokeY = y - (11 + cycle * 25) * scale;
+      c.fillStyle = `rgba(190,196,192,${.32 * (1 - cycle)})`;
+      c.beginPath(); c.arc(smokeX, smokeY, (1.8 + cycle * 3) * scale, 0, Math.PI * 2); c.fill();
+    }
+  } else if (type === 'moose' || type === 'fox' || type === 'hare') {
+    const animalScale = scale * (type === 'moose' ? 1.18 : type === 'fox' ? .92 : .82);
+    c.fillStyle = 'rgba(9,18,35,.22)';
+    c.beginPath(); c.ellipse(x, y + 6 * animalScale, 11 * animalScale, 2 * animalScale, 0, 0, Math.PI * 2); c.fill();
+    if (type === 'moose') {
+      c.fillStyle = '#5b3b26';
+      c.beginPath();
+      c.moveTo(x - 10 * animalScale, y - animalScale); c.quadraticCurveTo(x - 4 * animalScale, y - 8 * animalScale, x + 3 * animalScale, y - 5 * animalScale);
+      c.lineTo(x + 7 * animalScale, y + animalScale); c.quadraticCurveTo(x, y + 5 * animalScale, x - 10 * animalScale, y + 3 * animalScale); c.closePath(); c.fill();
+      c.fillStyle = '#684329';
+      c.beginPath(); c.moveTo(x + 2 * animalScale, y - 5 * animalScale); c.lineTo(x + 8 * animalScale, y - 11 * animalScale); c.lineTo(x + 11 * animalScale, y - 8 * animalScale); c.lineTo(x + 7 * animalScale, y); c.closePath(); c.fill();
+      c.beginPath(); c.ellipse(x + 12 * animalScale, y - 10 * animalScale, 5.5 * animalScale, 3 * animalScale, .12, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#3e2b20'; c.fillRect(x + 15 * animalScale, y - 9 * animalScale, 3 * animalScale, 1.8 * animalScale);
+      c.strokeStyle = '#49301f'; c.lineWidth = Math.max(1, 1.35 * animalScale); c.lineCap = 'round';
+      c.beginPath();
+      for (const legX of [-7, -3, 3, 6]) { c.moveTo(x + legX * animalScale, y + 2 * animalScale); c.lineTo(x + (legX - .5) * animalScale, y + 12 * animalScale); }
+      c.stroke();
+      c.strokeStyle = '#745033'; c.lineWidth = Math.max(1, 1.15 * animalScale);
+      c.beginPath();
+      c.moveTo(x + 10 * animalScale, y - 13 * animalScale); c.lineTo(x + 7 * animalScale, y - 19 * animalScale); c.lineTo(x + 2 * animalScale, y - 21 * animalScale);
+      c.moveTo(x + 8 * animalScale, y - 18 * animalScale); c.lineTo(x + 5 * animalScale, y - 16 * animalScale);
+      c.moveTo(x + 10 * animalScale, y - 13 * animalScale); c.lineTo(x + 13 * animalScale, y - 19 * animalScale); c.lineTo(x + 18 * animalScale, y - 21 * animalScale);
+      c.moveTo(x + 14 * animalScale, y - 18 * animalScale); c.lineTo(x + 17 * animalScale, y - 16 * animalScale); c.stroke();
+      c.fillStyle = '#101820'; c.fillRect(x + 13 * animalScale, y - 12 * animalScale, 1.2 * animalScale, 1.2 * animalScale);
+    } else if (type === 'fox') {
+      c.fillStyle = '#c65a2c';
+      c.beginPath(); c.ellipse(x, y, 9 * animalScale, 3.8 * animalScale, 0, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.moveTo(x + 6 * animalScale, y - 2 * animalScale); c.lineTo(x + 11 * animalScale, y - 7 * animalScale); c.lineTo(x + 17 * animalScale, y - 3 * animalScale); c.lineTo(x + 11 * animalScale, y + animalScale); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(x + 8 * animalScale, y - 5 * animalScale); c.lineTo(x + 9 * animalScale, y - 11 * animalScale); c.lineTo(x + 12 * animalScale, y - 6 * animalScale); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(x + 11 * animalScale, y - 6 * animalScale); c.lineTo(x + 14 * animalScale, y - 10 * animalScale); c.lineTo(x + 15 * animalScale, y - 4 * animalScale); c.closePath(); c.fill();
+      c.strokeStyle = '#b74c25'; c.lineWidth = 5 * animalScale; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(x - 8 * animalScale, y); c.quadraticCurveTo(x - 17 * animalScale, y - 5 * animalScale, x - 18 * animalScale, y + 4 * animalScale); c.stroke();
+      c.strokeStyle = '#f2e5cc'; c.lineWidth = 2.8 * animalScale; c.beginPath(); c.moveTo(x - 17 * animalScale, y + 2 * animalScale); c.lineTo(x - 18 * animalScale, y + 4 * animalScale); c.stroke();
+      c.fillStyle = '#f2e5cc'; c.beginPath(); c.moveTo(x + 11 * animalScale, y - 3 * animalScale); c.lineTo(x + 17 * animalScale, y - 3 * animalScale); c.lineTo(x + 11 * animalScale, y + animalScale); c.closePath(); c.fill();
+      c.strokeStyle = '#412a22'; c.lineWidth = Math.max(1, 1.1 * animalScale); c.beginPath();
+      c.moveTo(x - 4 * animalScale, y + 2 * animalScale); c.lineTo(x - 5 * animalScale, y + 7 * animalScale);
+      c.moveTo(x + 5 * animalScale, y + 2 * animalScale); c.lineTo(x + 7 * animalScale, y + 7 * animalScale); c.stroke();
+      c.fillStyle = '#101820'; c.beginPath(); c.arc(x + 17 * animalScale, y - 3 * animalScale, animalScale, 0, Math.PI * 2); c.fill();
+      c.fillRect(x + 12 * animalScale, y - 5 * animalScale, animalScale, animalScale);
+    } else {
+      c.fillStyle = '#938875';
+      c.beginPath(); c.ellipse(x - 3 * animalScale, y + animalScale, 7 * animalScale, 5.5 * animalScale, -.15, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(x + 4 * animalScale, y - 2 * animalScale, 4 * animalScale, 3.5 * animalScale, 0, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(x + 3 * animalScale, y - 10 * animalScale, 1.8 * animalScale, 7 * animalScale, -.2, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(x + 7 * animalScale, y - 10 * animalScale, 1.8 * animalScale, 7.5 * animalScale, .12, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#c9bfa9';
+      c.beginPath(); c.ellipse(x - 7 * animalScale, y + 4 * animalScale, 5 * animalScale, 2.8 * animalScale, -.15, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#f0e8d0'; c.beginPath(); c.arc(x - 9 * animalScale, y, 2.3 * animalScale, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#101820'; c.fillRect(x + 5 * animalScale, y - 4 * animalScale, animalScale, animalScale);
+    }
+  } else {
+    c.strokeStyle = '#d8d0b0'; c.beginPath(); c.moveTo(x, y + 7 * scale); c.lineTo(x, y - 7 * scale); c.stroke();
+    c.fillStyle = '#d83838'; c.fillRect(x, y - 7 * scale, 8 * scale, 5 * scale);
+  }
+  c.restore();
+}
+function drawShorePier(c, startX, startY, endX, endY, scale, preview = false) {
+  const dx = endX - startX, dy = endY - startY,
+    length = Math.hypot(dx, dy);
+  if (length < 2) return;
+  const nx = -dy / length, ny = dx / length,
+    width = Math.max(5, 8 * scale),
+    plankStep = Math.max(5, 6 * scale);
+  c.save();
+  c.lineCap = 'butt';
+  c.strokeStyle = 'rgba(9,18,35,.38)';
+  c.lineWidth = width + Math.max(3, 3 * scale);
+  c.beginPath(); c.moveTo(startX + 2, startY + 2); c.lineTo(endX + 2, endY + 2); c.stroke();
+  c.strokeStyle = '#5b3428'; c.lineWidth = width + Math.max(2, 2 * scale);
+  c.beginPath(); c.moveTo(startX, startY); c.lineTo(endX, endY); c.stroke();
+  c.strokeStyle = '#b88a50'; c.lineWidth = width;
+  c.beginPath(); c.moveTo(startX, startY); c.lineTo(endX, endY); c.stroke();
+  c.strokeStyle = '#76502f'; c.lineWidth = Math.max(1, scale);
+  for (let distance = plankStep; distance < length; distance += plankStep) {
+    const x = startX + dx * distance / length, y = startY + dy * distance / length;
+    c.beginPath();
+    c.moveTo(x - nx * width * .48, y - ny * width * .48);
+    c.lineTo(x + nx * width * .48, y + ny * width * .48);
+    c.stroke();
+  }
+  c.fillStyle = '#4b3022';
+  const postSize = Math.max(2, 2.4 * scale);
+  for (const side of [-1, 1]) c.fillRect(endX + nx * width * .48 * side - postSize / 2, endY + ny * width * .48 * side - postSize / 2, postSize, postSize);
+  if (preview) {
+    c.strokeStyle = '#ffe040'; c.lineWidth = Math.max(1, scale); c.setLineDash([4 * scale, 3 * scale]);
+    c.beginPath(); c.moveTo(startX, startY); c.lineTo(endX, endY); c.stroke();
+  }
+  c.restore();
+}
 function drawShoreLife(m, now) {
   const c = displayCtx;
   const scale = clamp(m.w / 805, .55, 1.15);
   const cabinSize = 9 * scale;
   // Match the people on the Hakovirta starting bridge.
-  const spectatorSize = .38 * scale;
+  const spectatorSize = .38 * (m.w / 805);
   const colors = ['#d84838', '#f8d848', '#3888d8', '#f0e8d0', '#c068a0', '#48a878'];
   c.save();
-  for (let i = 0; i < SHORE_CABINS.length; i++) {
-    const [mapX, mapY] = SHORE_CABINS[i];
-    drawShoreCabin(c, m.x + mapX * m.w, m.y + mapY * m.h, cabinSize, i % 2 ? '#d47438' : '#b94738');
+  const linnavuoriScale = scale * 7.5;
+  drawLinnavuori(c, m.x + LINNAVUORI[0] * m.w, m.y + LINNAVUORI[1] * m.h - 23 * linnavuoriScale * .2, linnavuoriScale);
+  if (!SHORE_TREES_SAVED && !SHORE_TREES.length) buildShoreTrees();
+  for (const [species, mapX, mapY, size] of SHORE_TREES) drawShoreTree(c, species, m.x + mapX * m.w, m.y + mapY * m.h, scale * size);
+  for (const [[startX, startY], [endX, endY]] of SHORE_PIERS) {
+    drawShorePier(c, m.x + startX * m.w, m.y + startY * m.h, m.x + endX * m.w, m.y + endY * m.h, scale);
   }
-  let spectatorIndex = 0;
-  for (let cabinIndex = 0; cabinIndex < SHORE_CABINS.length; cabinIndex++) {
-    const [mapX, mapY] = SHORE_CABINS[cabinIndex],
-      count = shoreCabinSpectatorCount(cabinIndex),
-      side = shoreCabinRandom(cabinIndex, 1) < .5 ? -1 : 1,
-      spectatorWidth = spectatorSize * 3.1;
-    for (let person = 0; person < count; person++) {
-      // The nearest person leaves a gap equal to half a person's width.
-      const offset = side * (cabinSize * 1.3 + spectatorWidth * (1 + person * 1.15)),
-        x = m.x + mapX * m.w + offset,
-        y = m.y + mapY * m.h + cabinSize * (1.05 + (person % 2) * .16);
-      drawShoreSpectator(c, x, y, spectatorSize, colors[spectatorIndex % colors.length], now, spectatorIndex);
-      spectatorIndex++;
+  for (let i = 0; i < SHORE_CABINS.length; i++) {
+    const [mapX, mapY, variant, sizeFactor] = SHORE_CABINS[i];
+    drawShoreCabin(c, m.x + mapX * m.w, m.y + mapY * m.h, cabinSize * sizeFactor, SHORE_CABIN_COLORS[i % SHORE_CABIN_COLORS.length], variant);
+  }
+  if (MAP_DECORATIONS_SAVED) {
+    for (let i = 0; i < SHORE_PEOPLE.length; i++) {
+      const [mapX, mapY] = SHORE_PEOPLE[i];
+      drawShoreSpectator(c, m.x + mapX * m.w, m.y + mapY * m.h, spectatorSize, colors[i % colors.length], now, i);
+    }
+  } else {
+    let spectatorIndex = 0;
+    for (let cabinIndex = 0; cabinIndex < SHORE_CABINS.length; cabinIndex++) {
+      const [mapX, mapY] = SHORE_CABINS[cabinIndex], count = shoreCabinSpectatorCount(cabinIndex),
+        side = shoreCabinRandom(cabinIndex, 1) < .5 ? -1 : 1, spectatorWidth = spectatorSize * 3.1;
+      for (let person = 0; person < count; person++) {
+        const offset = side * (cabinSize * 1.3 + spectatorWidth * (1 + person * 1.15));
+        drawShoreSpectator(c, m.x + mapX * m.w + offset, m.y + mapY * m.h + cabinSize * (1.05 + (person % 2) * .16), spectatorSize, colors[spectatorIndex % colors.length], now, spectatorIndex++);
+      }
     }
   }
+  for (const [type, mapX, mapY, facing] of SHORE_EXTRAS) drawMapExtra(c, type, m.x + mapX * m.w, m.y + mapY * m.h, scale, now, facing);
   c.restore();
 }
 const HIRVINIEMI_CROWD_POINTS = [
@@ -816,6 +1118,54 @@ function drawHirviniemiCrowd(m, now) {
   }
   c.restore();
 }
+function drawWaterSurface(m, now) {
+  if (!waterPixels) return;
+  const currentSection = section(),
+    wind = currentSection.wind ? clamp(raceDay?.windIntensity ?? 1, 0, 1.35) : .04,
+    direction = raceDay?.windDirection || 'head',
+    drift = {head: [-1, .32], cross: [.35, 1], tail: [1, -.22]}[direction],
+    density = currentSection.wind ? .38 + wind * .38 : .13,
+    speed = .000004 + wind * .000022,
+    crestLength = 2.4 + wind * 4.2,
+    rows = 25,
+    columns = 24;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineWidth = Math.max(.65, m.w / 805 * (.65 + wind * .22));
+  for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++) {
+    const seed = (column * 73 + row * 151) % 997,
+      visibility = ((seed * 47) % 101) / 100;
+    if (visibility > density) continue;
+    const phase = now * speed + seed * .013,
+      rawX = ((column + .25 + ((seed * 17) % 53) / 70 + drift[0] * phase) / columns % 1 + 1) % 1 * 805,
+      rawY = ((row + .2 + ((seed * 29) % 47) / 62 + drift[1] * phase) / rows % 1 + 1) % 1 * 851,
+      half = crestLength * (.65 + ((seed * 11) % 31) / 50),
+      tilt = direction === 'cross' ? .42 : direction === 'tail' ? -.15 : .15,
+      x1 = Math.round(rawX - half), y1 = Math.round(rawY - half * tilt),
+      x2 = Math.round(rawX + half), y2 = Math.round(rawY + half * tilt);
+    if (x1 < 0 || x2 >= 805 || y1 < 0 || y1 >= 851 || y2 < 0 || y2 >= 851 ||
+      !waterPixels[Math.round(rawY) * 805 + Math.round(rawX)] ||
+      !waterPixels[y1 * 805 + x1] || !waterPixels[y2 * 805 + x2]) continue;
+    const x = m.x + rawX / 805 * m.w,
+      y = m.y + rawY / 851 * m.h,
+      dx = half / 805 * m.w,
+      dy = half * tilt / 851 * m.h,
+      lift = (1.1 + wind * 1.5) * m.h / 851;
+    ctx.strokeStyle = `rgba(184,224,248,${.10 + wind * .18})`;
+    ctx.beginPath();
+    ctx.moveTo(x - dx, y - dy);
+    ctx.quadraticCurveTo(x, y - lift, x + dx, y + dy);
+    ctx.stroke();
+    if (wind > .65 && visibility < density * .34) {
+      ctx.strokeStyle = `rgba(16,72,144,${.08 + wind * .08})`;
+      ctx.beginPath();
+      ctx.moveTo(x - dx * .72, y - dy + lift * 1.35);
+      ctx.lineTo(x + dx * .55, y + dy + lift * 1.35);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
 function draw(now) {
   const w = canvas.clientWidth,
     h = canvas.clientHeight,
@@ -826,14 +1176,15 @@ function draw(now) {
   if (retroMapReady) {
     ctx.drawImage(retroMap, m.x, m.y, m.w, m.h);
     if (running) {
+      drawWaterSurface(m, now);
       for (const [base, phase] of [[.16, 0], [.48, 2.1], [.78, 4.2]]) drawSafetyBoat(m, patrolProgress(base, phase, now), now);
       drawAmbulanceBoat(m, now);
       drawKietavalaFerry(m);
       for (const [index, bot] of botRacers.entries()) {
-        const botPoint = formationPoint(bot.distance, index + 1, botRacers.length + 1, bot.lane, m, bot.routeChoice);
+        const botPoint = formationPoint(botMotionDistance(bot, index, now), index + 1, botRacers.length + 1, bot.lane, m, bot.routeChoice);
         botBoat(m.x + botPoint.x, m.y + botPoint.y, botPoint.angle, bot);
       }
-      const p = formationPoint(distance, 0, botRacers.length + 1, 0, m, playerRouteChoice);
+      const p = formationPoint(playerMotionDistance(now), 0, botRacers.length + 1, 0, m, playerRouteChoice);
       boat(m.x + p.x, m.y + p.y, p.angle, now);
     }
   } else {
@@ -850,10 +1201,10 @@ function draw(now) {
   if (typeof drawRouteEditorOverlay === 'function') drawRouteEditorOverlay(m, w, h);
   if (retroMapReady && running) {
     for (const [index, bot] of botRacers.entries()) {
-      const botPoint = formationPoint(bot.distance, index + 1, botRacers.length + 1, bot.lane, m, bot.routeChoice);
+      const botPoint = formationPoint(botMotionDistance(bot, index, now), index + 1, botRacers.length + 1, bot.lane, m, bot.routeChoice);
       drawBotPortrait({x: m.x + botPoint.x, y: m.y + botPoint.y}, bot);
     }
-    const p = formationPoint(distance, 0, botRacers.length + 1, 0, m, playerRouteChoice);
+    const p = formationPoint(playerMotionDistance(now), 0, botRacers.length + 1, 0, m, playerRouteChoice);
     p.x += m.x;
     p.y += m.y;
     drawDistanceBuoys(m);
@@ -864,6 +1215,7 @@ function draw(now) {
     drawRowerPortrait(p, now);
     if (!mapOverview) drawStartBridge(m, w, h, now);
   }
+  if (retroMapReady) drawVekaraBridge(m, w, h);
   const sectionInfo = section();
   document.getElementById('routeSection').textContent = sectionInfo.name;
   requestAnimationFrame(loop);

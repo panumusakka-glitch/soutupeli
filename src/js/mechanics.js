@@ -98,7 +98,8 @@ function rowerSweatRate(r = rower) {
  * models the separate, slowly accumulating fatigue of the full race.
  */
 function criticalStrokePower(r = rower, currentFreshness = freshness) {
-  return (54 + .30 * r.endurance + .08 * r.power) * (.82 + .18 * currentFreshness / 100);
+  const endurance = crewStat('endurance', r), power = crewStat('power', r);
+  return (54 + .30 * endurance + .08 * power) * (.82 + .18 * currentFreshness / 100);
 }
 
 function availableStrokePower() {
@@ -221,9 +222,19 @@ function rowingEffort(s, active = true) {
 }
 
 function maxRowerSpeed(r = rower) {
-  const speedFactor = r.speed / 99;
-  const powerFactor = .65 + .35 * r.power / 99;
-  return MAX_SPEED * speedFactor * powerFactor;
+  const speedFactor = crewStat('speed', r) / 99;
+  const powerFactor = .65 + .35 * crewStat('power', r) / 99;
+  return MAX_SPEED * speedFactor * powerFactor * (raceType === 'double' && r === rower ? doubleSpeedFactor() : 1);
+}
+
+// Virallisten 60 km reittiennätysten nopeussuhteet: parisoutu / yksinsoutu.
+const DOUBLE_SPEED_FACTORS = {
+  male: (5 * 3600 + 4 * 60 + 50) / (4 * 3600 + 42 * 60 + 50),
+  female: (6 * 3600 + 1 * 60 + 11) / (5 * 3600 + 23 * 60 + 8),
+  mixed: Math.sqrt((5 * 3600 + 4 * 60 + 50) * (6 * 3600 + 1 * 60 + 11)) / (5 * 3600 + 2 * 60 + 30)
+};
+function doubleSpeedFactor() {
+  return DOUBLE_SPEED_FACTORS[crewCategory()] || DOUBLE_SPEED_FACTORS.mixed;
 }
 
 function boatWeight() {

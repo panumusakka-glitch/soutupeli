@@ -26,7 +26,7 @@ function simulate(rowerName, powerExpression, weather = 'normal', windDirection 
     showFinishReport=()=>{};
     let simNow=1000;
     let nextSportsDrink=0, nextWater=0, nextPickle=0;
-    while(running && raceElapsed<36000){
+    while(running && playerFinishedAt===null && raceElapsed<36000){
       const progress=distance/TOTAL;
       strokePower=${powerExpression};
       if(raceElapsed>=nextSportsDrink){consume('sportsdrink');nextSportsDrink+=720;}
@@ -37,7 +37,7 @@ function simulate(rowerName, powerExpression, weather = 'normal', windDirection 
       strokeTimes=[simNow-2857,simNow];
       update(5,simNow);
     }
-    ({time:raceElapsed,finished:distance>=TOTAL,wPrime,freshness,energy,hydration,techniqueControl,cramps,blisters});
+    ({time:playerFinishedAt??raceElapsed,finished:distance>=TOTAL,wPrime,freshness,energy,hydration,techniqueControl,cramps,blisters});
   `);
 }
 

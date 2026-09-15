@@ -3,34 +3,41 @@ const ROUTE_RECORD_KEY = 'suursoutu-route-records-v1';
 const SAVE_SLOTS = [SAVE_KEY, `${SAVE_KEY}-2`, `${SAVE_KEY}-3`];
 const defaultRouteRecords = {
   male: {name: 'Ari Kankkunen', seconds: 5 * 3600 + 4 * 60 + 50, year: 1991},
-  female: {name: 'Hanna Tuominen', seconds: 6 * 3600 + 60 + 11, year: 2009}
+  female: {name: 'Hanna Tuominen', seconds: 6 * 3600 + 60 + 11, year: 2009},
+  'double-male': {name: 'Jyrki Kiviniemi & Jani Söderlund', seconds: 4 * 3600 + 42 * 60 + 50, year: 2016},
+  'double-female': {name: 'Tanja Jantunen & Kaisa Saarimaa', seconds: 5 * 3600 + 23 * 60 + 8, year: 2022},
+  'double-mixed': {name: 'Elisa Aunola & Seppo Rellman', seconds: 5 * 3600 + 2 * 60 + 30, year: 2016}
 };
-const renamedRowers = {'Joey Power': 'Joel Naukkarinen', 'Kankku King': 'Ari Kankkunen', 'Heikki Fjord': 'Heikki Karjaluoto', 'Sauli Niinistö': 'Sale Steel'};
+const renamedRowers = {'Joey Power': 'Joel Naukkarinen', 'Kankku King': 'Ari Kankkunen', 'Heikki Fjord': 'Heikki Karjaluoto', 'Sauli Niinistö': 'Sale Steel', 'Einari Luukkonen': 'Einari "Leppäsuaren Einar" Luukkonen', 'Juho-Kalle Björn': 'Juho Karhu', 'Lassi Toropainen': 'El Toro'};
 let activeSaveSlot = 1,
   pausedSaveSlot = null;
-function routeRecord(gender) {
+function routeRecord(gender, type = 'single') {
+  const key = type === 'double' ? `double-${gender}` : gender;
+  const fallback = defaultRouteRecords[key];
   try {
     const saved = JSON.parse(localStorage.getItem(ROUTE_RECORD_KEY));
-    const record = saved?.[gender];
+    const record = saved?.[key];
     return record && typeof record.name === 'string' && Number.isFinite(record.seconds) && record.seconds > 0
       ? record
-      : defaultRouteRecords[gender];
+      : fallback;
   } catch {
-    return defaultRouteRecords[gender];
+    return fallback;
   }
 }
-function routeRecordLabel(gender) {
-  const record = routeRecord(gender);
-  const title = gender === 'female' ? 'Naisten reittiennätys' : 'Reittiennätys';
+function routeRecordLabel(gender, type = 'single') {
+  const record = routeRecord(gender, type);
+  const doubleTitle = gender === 'female' ? 'Naisten parisoudun reittiennätys' : gender === 'mixed' ? 'Sekaparisoudun reittiennätys' : 'Miesten parisoudun reittiennätys';
+  const title = type === 'double' ? doubleTitle : gender === 'female' ? 'Naisten reittiennätys' : 'Reittiennätys';
   const time = formatTime(record.seconds).replaceAll(':', '.');
   return `${title}: ${record.name} – ${time}${record.year ? ` (${record.year})` : ''}`;
 }
-function updateRouteRecord(gender, name, seconds) {
-  const current = routeRecord(gender);
+function updateRouteRecord(gender, name, seconds, type = 'single') {
+  const key = type === 'double' ? `double-${gender}` : gender;
+  const current = routeRecord(gender, type);
   if (seconds >= current.seconds) return false;
   try {
     const saved = JSON.parse(localStorage.getItem(ROUTE_RECORD_KEY)) || {};
-    saved[gender] = {name, seconds};
+    saved[key] = {name, seconds};
     localStorage.setItem(ROUTE_RECORD_KEY, JSON.stringify(saved));
     return true;
   } catch {
@@ -40,7 +47,7 @@ function updateRouteRecord(gender, name, seconds) {
 const stateRanges = {
   elapsed: [0, 1e8],
   distance: [0, TOTAL - .00001],
-  speed: [0, Math.max(...rowers.map(r => maxRowerSpeed(r)))],
+  speed: [0, Math.max(...rowers.map(r => maxRowerSpeed(r))) * Math.max(...Object.values(DOUBLE_SPEED_FACTORS))],
   quality: [0, 1],
   carbs: [0, 420],
   bloodCarbs: [0, 60],
@@ -72,6 +79,9 @@ function migrateRaceDay(day) {
 function validRace(s) {
   if (!s || s.version !== 1 || !rowers.some(r => r.name === s.rower) || !boats.some(b => b.name === s.boat) || !Object.hasOwn(materials, s.material)) return false;
   if (!Object.hasOwn(provisionPacks, s.provisionPack)) return false;
+  if (!['single', 'double'].includes(s.raceType)) return false;
+  if (s.raceType === 'double' && (!doubleRowerNames.includes(s.rower) || !doubleRowerNames.includes(s.partnerRower) || s.partnerRower === s.rower)) return false;
+  if (s.raceType === 'double' && s.partnerRower === 'Seppo Räty' && s.provisionPack !== 'fun') return false;
   if (s.rower === 'Seppo Räty' && s.provisionPack !== 'fun') return false;
   if (boats.find(b => b.name === s.boat).spruceOnly && s.material !== 'spruce') return false;
   if (!Object.entries(stateRanges).every(([k, [lo, hi]]) => Number.isFinite(s[k]) && s[k] >= lo && s[k] <= hi)) return false;
@@ -81,6 +91,7 @@ function validRace(s) {
 function loadRace(slot = activeSaveSlot) {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_SLOTS[slot - 1]));
+    if (s && !Object.hasOwn(s, 'raceType')) s.raceType = 'single';
     if (s && !Object.hasOwn(s, 'provisionPack')) s.provisionPack = 'legacy';
     if (s?.inventory) for (const key of Object.keys(foods)) if (!Number.isInteger(s.inventory[key])) s.inventory[key] = 0;
     if (s?.rower === 'Seppo Räty' && s.provisionPack !== 'fun') {
@@ -111,6 +122,7 @@ function loadRace(slot = activeSaveSlot) {
       migrateRaceDay(bot.day);
     });
     if (s?.rower && renamedRowers[s.rower]) s.rower = renamedRowers[s.rower];
+    if (s?.partnerRower && renamedRowers[s.partnerRower]) s.partnerRower = renamedRowers[s.partnerRower];
     if (Array.isArray(s?.bots)) s.bots.forEach(bot => {
       if (renamedRowers[bot.rower]) bot.rower = renamedRowers[bot.rower];
     });
@@ -122,7 +134,9 @@ function loadRace(slot = activeSaveSlot) {
 function snapshot() {
   return {
     version: 1,
+    raceType,
     rower: rower.name,
+    partnerRower: partnerRower?.name || null,
     boat: selectedBoat.name,
     material,
     provisionPack: selectedProvisionPack,
@@ -240,7 +254,8 @@ function showSaveSlots(mode) {
   document.getElementById('resumeSummary').textContent = mode === 'continue' ? 'Valitse tallennus, jota haluat jatkaa.' : 'Uusi soutu tallennetaan valitsemaasi paikkaan.';
   document.getElementById('saveSlots').innerHTML = saves.map((save, index) => {
     const slot = index + 1;
-    const details = save ? `${save.rower} · ${(save.distance / 1000).toFixed(1).replace('.', ',')} km · ${formatTime(save.elapsed)}` : 'Tyhjä';
+    const savedCrew = save?.raceType === 'double' ? `${save.rower} & ${save.partnerRower}` : save?.rower;
+    const details = save ? `${savedCrew} · ${save.raceType === 'double' ? 'Parisoutu' : 'Yksinsoutu'} · ${(save.distance / 1000).toFixed(1).replace('.', ',')} km · ${formatTime(save.elapsed)}` : 'Tyhjä';
     const action = mode === 'continue' ? 'Jatka' : save ? 'Korvaa' : 'Valitse';
     return `<button class="save-slot" type="button" data-mode="${mode}" data-slot="${slot}"${mode === 'continue' && !save ? ' disabled' : ''}><b>Paikka ${slot}</b><span>${details}</span><em>${action}</em></button>`;
   }).join('');
@@ -260,9 +275,9 @@ function chooseSaveSlot(mode, slot) {
   selectCrew();
   document.getElementById('resumePanel').hidden = true;
   document.getElementById('selectionPanel').hidden = false;
+  showSelectionStep(1);
   document.getElementById('startInstructions').hidden = false;
   document.getElementById('saveStatus').hidden = false;
-  document.getElementById('startButton').hidden = false;
   document.getElementById('saveStatus').textContent = `Soutu tallentuu paikkaan ${slot}.`;
   document.getElementById('startButton').textContent = 'Lähde Hakovirralta';
 }
@@ -272,7 +287,10 @@ function resumeRace(slot = activeSaveSlot) {
   if (!validRace(s)) return;
   rowingAudio.unlock();
   reset();
-  rowerSelect.value = String(rowers.findIndex(r => r.name === s.rower));
+  const savedRowerIndex = rowers.findIndex(r => r.name === s.rower);
+  selectRowerGender(rowers[savedRowerIndex]?.voiceGender, savedRowerIndex);
+  const savedPartnerIndex = rowers.findIndex(r => r.name === s.partnerRower);
+  setRaceType(s.raceType, savedPartnerIndex);
   boatSelect.value = String(boats.findIndex(b => b.name === s.boat));
   materialSelect.value = s.material;
   provisionPackSelect.value = s.provisionPack;
@@ -352,7 +370,7 @@ function resumeRace(slot = activeSaveSlot) {
   rowingAudio.stopMenuMusic();
   last = performance.now();
   phaseStart = last - TARGET_RECOVERY * 1000;
-  rowerSelect.disabled = boatSelect.disabled = materialSelect.disabled = provisionPackSelect.disabled = true;
+  rowerSelect.disabled = partnerRowerSelect.disabled = boatSelect.disabled = materialSelect.disabled = provisionPackSelect.disabled = true;
   document.body.classList.add('race-mode');
   ui.start.classList.add('hidden');
   resize();

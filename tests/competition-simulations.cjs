@@ -27,7 +27,7 @@ for (let race = 1; race <= RACES; race++) {
     rowerChatter.announceFinish=()=>{};
     let place=null, nextSportsDrink=0, nextWater=0, nextPickle=0, simNow=1000;
     showFinishReport=(sec,rank)=>place=rank;
-    while(running&&raceElapsed<36000){
+    while(playerFinishedAt===null&&raceElapsed<36000){
       const progress=distance/TOTAL;
       strokePower=progress<.10?78:progress<.85?85:90;
       if(raceElapsed>=nextSportsDrink){consume('sportsdrink');nextSportsDrink+=720;}
@@ -40,13 +40,13 @@ for (let race = 1; race <= RACES; race++) {
     }
     const finishedBots=botRacers.filter(bot=>bot.finishedAt!==null).sort((a,b)=>a.finishedAt-b.finishedAt);
     const winningBot=finishedBots[0];
-    ({finished:distance>=TOTAL,time:raceElapsed,place,winner:winningBot?.rower.name||rower.name,winnerTime:Math.min(raceElapsed,winningBot?.finishedAt??Infinity),botFinishes:finishedBots.length});
+    ({finished:distance>=TOTAL,time:playerFinishedAt,place,winner:winningBot?.finishedAt<playerFinishedAt?winningBot.rower.name:rower.name,winnerTime:Math.min(playerFinishedAt,winningBot?.finishedAt??Infinity),botFinishes:finishedBots.length,totalBots:botRacers.length});
   `));
 }
 
 assert.equal(results.length, RACES);
 assert(results.every(result=>result.finished&&result.place>=1&&result.place<=25));
-assert(results.every(result=>result.time>=4*3600&&result.time<=8*3600));
+assert(results.every(result=>result.time>=4*3600&&result.time<=9*3600));
 
 const average=(key)=>results.reduce((sum,result)=>sum+result[key],0)/results.length;
 const wins=results.filter(result=>result.place===1).length;
