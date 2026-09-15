@@ -34,6 +34,7 @@ const ui = {
   lastIntake: document.getElementById('lastIntake')
 };
 let leaderboardExpanded = false;
+let lastHudUpdate = -Infinity;
 const womensLeaderboard = new Set([
   'Marika Laaksonen',
   'Hanna Tuominen',
@@ -56,7 +57,27 @@ function setMeter(kind, value, hint) {
   ui[`${kind}Bar`].style.background = value > 65 ? '#66b887' : value > 35 ? '#e3a641' : '#ef5b32';
   ui[`${kind}Hint`].textContent = hint;
 }
+function updateStrokeGuide(now) {
+  const phaseElapsed = (now - phaseStart) / 1000,
+    driveProgress = clamp(phaseElapsed / 1.35),
+    recoveryProgress = clamp(phaseElapsed / TARGET_RECOVERY);
+  if (pressing) {
+    ui.bar.style.width = `${driveProgress * 100}%`;
+    ui.cursor.style.left = `${driveProgress * 100}%`;
+    ui.phase.textContent = driveProgress < .18 ? 'KIINNIOTTO' : driveProgress < .63 ? 'VETO' : 'IRROTUS';
+    ui.phaseHelp.textContent = driveProgress < .55 ? 'Pidä paine tasaisena' : driveProgress < .88 ? 'Vapauta vihreällä' : 'Vapauta nyt';
+  } else {
+    ui.bar.style.width = '0%';
+    ui.cursor.style.left = `${(1 - recoveryProgress) * 100}%`;
+    ui.phase.textContent = recoveryProgress < 1 ? 'PALAUTUS' : 'VALMIS VETOON';
+    ui.phaseHelp.textContent = recoveryProgress < .7 ? 'Anna veneen liukua' : recoveryProgress < 1 ? 'Valmistaudu kiinniottoon' : 'Paina välilyönti pohjaan';
+  }
+}
 function updateUI(now = performance.now()) {
+  const forceUpdate = arguments.length === 0;
+  updateStrokeGuide(now);
+  if (!forceUpdate && now - lastHudUpdate < 100) return;
+  lastHudUpdate = now;
   updateInventory();
   updateCrampUI();
   updateLeaderboard();
@@ -84,20 +105,6 @@ function updateUI(now = performance.now()) {
   }
   ui.quality.textContent = label;
   ui.qualityHint.textContent = hint;
-  const phaseElapsed = (now - phaseStart) / 1000,
-    driveProgress = clamp(phaseElapsed / 1.35),
-    recoveryProgress = clamp(phaseElapsed / TARGET_RECOVERY);
-  if (pressing) {
-    ui.bar.style.width = `${driveProgress * 100}%`;
-    ui.cursor.style.left = `${driveProgress * 100}%`;
-    ui.phase.textContent = driveProgress < .18 ? 'KIINNIOTTO' : driveProgress < .63 ? 'VETO' : 'IRROTUS';
-    ui.phaseHelp.textContent = driveProgress < .55 ? 'Pidä paine tasaisena' : driveProgress < .88 ? 'Vapauta vihreällä' : 'Vapauta nyt';
-  } else {
-    ui.bar.style.width = '0%';
-    ui.cursor.style.left = `${(1 - recoveryProgress) * 100}%`;
-    ui.phase.textContent = recoveryProgress < 1 ? 'PALAUTUS' : 'VALMIS VETOON';
-    ui.phaseHelp.textContent = recoveryProgress < .7 ? 'Anna veneen liukua' : recoveryProgress < 1 ? 'Valmistaudu kiinniottoon' : 'Paina välilyönti pohjaan';
-  }
   ui.feedback.parentElement.classList.toggle('flash', feedbackTimer > 0);
   const raceSec = raceElapsed;
   ui.raceTime.textContent = formatTime(raceSec);

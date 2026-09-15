@@ -2,6 +2,8 @@ const portraitCrops = {};
 const portraitFiles = {
   'Juho Karhu': 'juho-kalle-bjorn.png',
   'El Toro': 'lassi-toropainen.png',
+  'Juha Tapio': 'juha-tapio.png',
+  'Anni Tapio': 'anni-tapio.png',
   'Joel Naukkarinen': 'joel-naukkarinen.png',
   'Pertti Karppinen': 'pertti-karppinen.png',
   'Jari Saario': 'jari-saario.png',

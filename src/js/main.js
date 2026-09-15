@@ -11,8 +11,14 @@ provisionPackSelect.value = 'athlete';
 boatSelect.add(new Option('Valitse vene…', ''));
 boats.forEach((b, i) => boatSelect.add(new Option(`${b.name} · ${materials[b.material].name}`, i)));
 selectDefaultCrew();
-document.getElementById('maleRowers').onclick = () => { selectRowerGender('male'); selectCrew(); };
+document.getElementById('maleRowers').onclick = () => { selectRowerGender('male'); if (raceType === 'double') populatePartnerRowers(); selectCrew(); };
 document.getElementById('femaleRowers').onclick = () => { selectRowerGender('female'); selectCrew(); };
+document.getElementById('mixedRowers').onclick = () => {
+  if (raceType !== 'double') return;
+  selectRowerGender('mixed');
+  populatePartnerRowers();
+  selectCrew();
+};
 document.getElementById('singleRace').onclick = () => setRaceType('single');
 document.getElementById('doubleRace').onclick = () => setRaceType('double');
 rowerSelect.onchange = () => {

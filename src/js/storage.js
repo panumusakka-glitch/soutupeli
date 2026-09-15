@@ -80,7 +80,7 @@ function validRace(s) {
   if (!s || s.version !== 1 || !rowers.some(r => r.name === s.rower) || !boats.some(b => b.name === s.boat) || !Object.hasOwn(materials, s.material)) return false;
   if (!Object.hasOwn(provisionPacks, s.provisionPack)) return false;
   if (!['single', 'double'].includes(s.raceType)) return false;
-  if (s.raceType === 'double' && (!doubleRowerNames.includes(s.rower) || !doubleRowerNames.includes(s.partnerRower) || s.partnerRower === s.rower)) return false;
+  if (s.raceType === 'double' && !isDoubleCrew(s.rower, s.partnerRower)) return false;
   if (s.raceType === 'double' && s.partnerRower === 'Seppo Räty' && s.provisionPack !== 'fun') return false;
   if (s.rower === 'Seppo Räty' && s.provisionPack !== 'fun') return false;
   if (boats.find(b => b.name === s.boat).spruceOnly && s.material !== 'spruce') return false;

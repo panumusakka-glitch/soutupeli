@@ -1,5 +1,22 @@
 // Fictional game ratings. Higher cramp is worse; other stats help.
-const doubleRowerNames = ['Juho Karhu', 'El Toro'];
+const doubleCrews = [{
+  rowers: ['Juho Karhu', 'El Toro'],
+  bestTimeSeconds: 6 * 3600 + 20 * 60 + 54
+}, {
+  rowers: ['Juha Tapio', 'Anni Tapio'],
+  bestTimeSeconds: 5 * 3600 + 39 * 60 + 27.8
+}];
+const doubleRowerNames = doubleCrews.flatMap(crew => crew.rowers);
+function doublePartnerName(name) {
+  return doubleCrews.find(crew => crew.rowers.includes(name))?.rowers.find(candidate => candidate !== name) || null;
+}
+function isDoubleCrew(first, second) {
+  return doubleCrews.some(crew => crew.rowers.includes(first) && crew.rowers.includes(second) && first !== second);
+}
+function doubleCrewCategory(crew) {
+  const genders = crew.rowers.map(name => rowers.find(candidate => candidate.name === name)?.voiceGender);
+  return genders[0] === genders[1] ? genders[0] : 'mixed';
+}
 const rowers = [{
   "name": "Joel Naukkarinen",
   "speed": 99,
@@ -13,27 +30,51 @@ const rowers = [{
   "voiceGender": "male"
 }, {
   "name": "Juho Karhu",
-  "speed": 94,
-  "endurance": 96,
-  "skill": 95,
-  "cramp": 14,
-  "hands": 94,
-  "stomach": 93,
-  "power": 95,
+  "speed": 88,
+  "endurance": 89,
+  "skill": 88,
+  "cramp": 22,
+  "hands": 88,
+  "stomach": 88,
+  "power": 88,
   "blisterImmune": false,
   "voiceGender": "male",
   "doubleOnly": true
 }, {
   "name": "El Toro",
-  "speed": 93,
-  "endurance": 95,
-  "skill": 96,
-  "cramp": 15,
+  "speed": 85,
+  "endurance": 90,
+  "skill": 89,
+  "cramp": 20,
+  "hands": 89,
+  "stomach": 89,
+  "power": 92,
+  "blisterImmune": false,
+  "voiceGender": "male",
+  "doubleOnly": true
+}, {
+  "name": "Juha Tapio",
+  "speed": 95,
+  "endurance": 96,
+  "skill": 95,
+  "cramp": 14,
   "hands": 95,
-  "stomach": 92,
+  "stomach": 95,
   "power": 96,
   "blisterImmune": false,
   "voiceGender": "male",
+  "doubleOnly": true
+}, {
+  "name": "Anni Tapio",
+  "speed": 93,
+  "endurance": 94,
+  "skill": 94,
+  "cramp": 16,
+  "hands": 94,
+  "stomach": 94,
+  "power": 92,
+  "blisterImmune": false,
+  "voiceGender": "female",
   "doubleOnly": true
 }, {
   "name": "Pertti Karppinen",

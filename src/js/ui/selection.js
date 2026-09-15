@@ -6,9 +6,10 @@ const rowerSelect = document.getElementById('rowerSelect'),
 let selectedRowerGender = 'male',
   lastSingleRowerIndex = rowers.findIndex(candidate => candidate.name === DEFAULT_CREW.rower);
 function selectableRowers() {
-  return raceType === 'double'
-    ? rowers.filter(candidate => doubleRowerNames.includes(candidate.name))
-    : rowers.filter(candidate => !candidate.doubleOnly);
+  if (raceType !== 'double') return rowers.filter(candidate => !candidate.doubleOnly);
+  return doubleCrews
+    .filter(crew => doubleCrewCategory(crew) === selectedRowerGender)
+    .map(crew => rowers.find(candidate => candidate.name === crew.rowers[0]));
 }
 function crewName() {
   return raceType === 'double' && partnerRower ? `${rower.name} & ${partnerRower.name}` : rower.name;
@@ -24,20 +25,20 @@ function crewStat(key, fallbackRower = rower) {
 function populatePartnerRowers(preferredIndex) {
   partnerRowerSelect.innerHTML = '';
   partnerRowerSelect.add(new Option('Valitse pari…', ''));
-  selectableRowers().forEach(candidate => {
-    const index = rowers.indexOf(candidate);
-    if (String(index) !== rowerSelect.value) partnerRowerSelect.add(new Option(candidate.name, index));
-  });
-  const fallback = selectableRowers().find(candidate => String(rowers.indexOf(candidate)) !== rowerSelect.value);
-  const fallbackIndex = rowers.indexOf(fallback);
-  const selectedIndex = doubleRowerNames.includes(rowers[preferredIndex]?.name) && String(preferredIndex) !== rowerSelect.value ? preferredIndex : fallbackIndex;
+  const partnerName = doublePartnerName(rowers[Number(rowerSelect.value)]?.name);
+  const partnerIndex = rowers.findIndex(candidate => candidate.name === partnerName);
+  if (partnerIndex >= 0) partnerRowerSelect.add(new Option(partnerName, partnerIndex));
+  const selectedIndex = preferredIndex === partnerIndex ? preferredIndex : partnerIndex;
   partnerRowerSelect.value = selectedIndex >= 0 ? String(selectedIndex) : '';
 }
 function setRaceType(type, preferredPartnerIndex) {
   const previousRowerIndex = rowerSelect.value === '' ? -1 : Number(rowerSelect.value);
   if (raceType === 'single' && !rowers[previousRowerIndex]?.doubleOnly) lastSingleRowerIndex = previousRowerIndex;
   raceType = type === 'double' ? 'double' : 'single';
-  document.getElementById('partnerRowerField').hidden = raceType !== 'double';
+  document.getElementById('partnerRowerField').hidden = true;
+  partnerRowerSelect.disabled = raceType !== 'double';
+  document.getElementById('rowerSelectLabel').textContent = raceType === 'double' ? 'Parisoutupari' : 'Soutaja';
+  document.getElementById('selectionTitle').textContent = raceType === 'double' ? 'Valitse parisoutupari' : 'Valitse soutaja';
   document.getElementById('singleRace').classList.toggle('active', raceType === 'single');
   document.getElementById('doubleRace').classList.toggle('active', raceType === 'double');
   document.getElementById('singleRace').setAttribute('aria-pressed', String(raceType === 'single'));
@@ -47,24 +48,41 @@ function setRaceType(type, preferredPartnerIndex) {
     ? 'Parisoutu lähtee ensin. Yksinsoutajat lähtevät 20 minuuttia myöhemmin.'
     : 'Yksinsoutu lähtee 20 minuuttia parisoudun jälkeen.';
   selectRowerGender(raceType === 'double' ? 'male' : selectedRowerGender, raceType === 'double' ? previousRowerIndex : lastSingleRowerIndex);
-  document.getElementById('femaleRowers').disabled = raceType === 'double';
+  const femaleRowers = document.getElementById('femaleRowers'),
+    mixedRowers = document.getElementById('mixedRowers');
+  femaleRowers.hidden = raceType === 'double';
+  femaleRowers.disabled = raceType === 'double';
+  mixedRowers.hidden = raceType !== 'double';
+  mixedRowers.disabled = raceType !== 'double';
   if (raceType === 'double') populatePartnerRowers(preferredPartnerIndex);
-  else partnerRower = null;
+  else {
+    partnerRower = null;
+    partnerRowerSelect.value = '';
+    const partnerImage = document.getElementById('partnerRowerPortrait');
+    partnerImage.hidden = true;
+    partnerImage.removeAttribute('src');
+    partnerImage.alt = '';
+  }
   selectCrew();
 }
 function selectRowerGender(gender, preferredIndex) {
-  selectedRowerGender = raceType !== 'double' && gender === 'female' ? 'female' : 'male';
+  selectedRowerGender = raceType === 'double'
+    ? gender === 'mixed' ? 'mixed' : 'male'
+    : gender === 'female' ? 'female' : 'male';
   rowerSelect.innerHTML = '';
   rowerSelect.add(new Option('Valitse soutaja…', ''));
   selectableRowers().forEach(candidate => {
     const index = rowers.indexOf(candidate);
-    if (candidate.voiceGender === selectedRowerGender) rowerSelect.add(new Option(candidate.name, index));
+    if (raceType === 'double' || candidate.voiceGender === selectedRowerGender) {
+      const label = raceType === 'double' ? `${candidate.name} & ${doublePartnerName(candidate.name)}` : candidate.name;
+      rowerSelect.add(new Option(label, index));
+    }
   });
-  const fallback = selectableRowers().find(candidate => candidate.voiceGender === selectedRowerGender);
+  const fallback = selectableRowers().find(candidate => raceType === 'double' || candidate.voiceGender === selectedRowerGender);
   const fallbackIndex = rowers.indexOf(fallback);
-  const selectedIndex = selectableRowers().includes(rowers[preferredIndex]) && rowers[preferredIndex]?.voiceGender === selectedRowerGender ? preferredIndex : fallbackIndex;
+  const selectedIndex = selectableRowers().includes(rowers[preferredIndex]) && (raceType === 'double' || rowers[preferredIndex]?.voiceGender === selectedRowerGender) ? preferredIndex : fallbackIndex;
   rowerSelect.value = selectedIndex >= 0 ? String(selectedIndex) : '';
-  for (const [id, value] of [['maleRowers', 'male'], ['femaleRowers', 'female']]) {
+  for (const [id, value] of [['maleRowers', 'male'], ['femaleRowers', 'female'], ['mixedRowers', 'mixed']]) {
     const button = document.getElementById(id), active = value === selectedRowerGender;
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
@@ -81,7 +99,7 @@ function selectCrew() {
     if (String(previousPartner) === rowerSelect.value || !rowers[previousPartner]) populatePartnerRowers();
     partnerRower = rowers[Number(partnerRowerSelect.value)] || null;
   } else partnerRower = null;
-  const hasCrew = hasRower && (raceType === 'single' || (partnerRower && partnerRower !== rower));
+  const hasCrew = hasRower && (raceType === 'single' || (partnerRower && isDoubleCrew(rower.name, partnerRower.name)));
   const seppoPackageOnly = hasCrew && [rower, partnerRower].some(candidate => candidate?.name === 'Seppo Räty');
   if (seppoPackageOnly) provisionPackSelect.value = 'fun';
   provisionPackSelect.disabled = seppoPackageOnly;
@@ -93,9 +111,14 @@ function selectCrew() {
   selectedProvisionPack = provisionPackSelect.value;
   if (hasRower) updatePortrait();
   if (hasRower) document.getElementById('routeRecord').textContent = routeRecordLabel(crewCategory(), raceType);
-  document.getElementById('rowerPortrait').parentElement.hidden = !hasRower;
+  document.getElementById('rowerProfile').hidden = !hasRower;
   const labels = [['power', 'Voima'], ['speed', 'Nopeus'], ['endurance', 'Kestävyys'], ['skill', 'Taito'], ['cramp', 'Kramppiherkkyys'], ['hands', 'Käsien kovuus'], ['stomach', 'Vatsan toiminta']];
-  document.getElementById('rowerStats').innerHTML = hasRower ? labels.map(([key, label]) => `<div class="stat ${key === 'cramp' ? 'bad' : ''}">${raceType === 'double' ? `Miehistön ${label.toLowerCase()}` : label}<b>${Math.round(crewStat(key))} / 99</b>${key === 'hands' && rower.blisterImmune && (raceType !== 'double' || partnerRower?.blisterImmune) ? '<small>Ei rakkoja</small>' : ''}</div>`).join('') : '';
+  const rowerStats = document.getElementById('rowerStats');
+  const statMarkup = candidate => labels.map(([key, label]) => `<div class="stat ${key === 'cramp' ? 'bad' : ''}">${label}<b>${candidate[key]} / 99</b>${key === 'hands' && candidate.blisterImmune ? '<small>Ei rakkoja</small>' : ''}</div>`).join('');
+  rowerStats.className = raceType === 'double' ? 'crew-stat-grids' : 'stat-grid';
+  rowerStats.innerHTML = !hasRower ? '' : raceType === 'double'
+    ? [rower, partnerRower].map(candidate => `<section class="crew-rower-stats"><h3>${candidate.name}</h3><div class="stat-grid">${statMarkup(candidate)}</div></section>`).join('')
+    : statMarkup(rower);
   document.getElementById('boatStats').innerHTML = hasBoat ? [['Runkonopeus', selectedBoat.hull], ['Vastatuuli', selectedBoat.headwind], ['Vakaus', selectedBoat.stability]].map(([label, value]) => `<div class="stat">${label}<b>${value} / 5</b></div>`).join('') : '';
   document.getElementById('materialStats').textContent = material ? `Paino noin ${boatWeight()} kg. ${selectedBoat.spruceOnly ? 'Saatavana vain kuusivanerisena. ' : ''}${materials[material].name}: ${materials[material].description}${isGoldenBoat() ? ' Kultainen erikoisvene.' : ''}` : '';
   document.getElementById('provisionPackStats').textContent = selectedProvisionPack
@@ -114,7 +137,7 @@ function showSelectionStep(step) {
     section.hidden = Number(section.dataset.selectionStep) !== currentStep;
   });
   document.getElementById('selectionProgress').textContent = `VAIHE ${currentStep} / 3`;
-  document.getElementById('selectionTitle').textContent = selectionTitles[currentStep - 1];
+  document.getElementById('selectionTitle').textContent = currentStep === 1 && raceType === 'double' ? 'Valitse parisoutupari' : selectionTitles[currentStep - 1];
   document.getElementById('startButton').hidden = currentStep !== 3;
 }
 function updatePortrait() {
@@ -124,7 +147,14 @@ function updatePortrait() {
   image.hidden = !hasPortrait;
   image.alt = hasPortrait ? `${rower.name}, karikatyyri` : '';
   if (hasPortrait) image.src = portraitFiles[rower.name];else image.removeAttribute('src');
-  document.getElementById('portraitName').textContent = rower.name;
+  const partnerImage = document.getElementById('partnerRowerPortrait');
+  const hasPartnerPortrait = raceType === 'double' && partnerRower && !!portraitFiles[partnerRower.name];
+  const partnerMask = hasPartnerPortrait ? botPortraitMask(partnerRower.name) : null;
+  partnerImage.style.clipPath = partnerMask ? `polygon(${partnerMask.map(([x, y]) => `${x * 100}% ${y * 100}%`).join(',')})` : '';
+  partnerImage.hidden = !hasPartnerPortrait;
+  partnerImage.alt = hasPartnerPortrait ? `${partnerRower.name}, karikatyyri` : '';
+  if (hasPartnerPortrait) partnerImage.src = portraitFiles[partnerRower.name];else partnerImage.removeAttribute('src');
+  document.getElementById('portraitName').textContent = crewName();
 }
 
 function selectDefaultCrew() {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Sulkavan Suursoutu</title>
-  <link rel="stylesheet" href="styles.css?v=8">
+  <link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
   <audio id="menuMusic" preload="auto" loop>
@@ -66,10 +66,11 @@
               <div class="rower-gender" role="group" aria-label="Valitse soutajien ryhmä">
                 <button id="maleRowers" class="rower-gender-option male" type="button">Miehet</button>
                 <button id="femaleRowers" class="rower-gender-option female" type="button">Naiset</button>
+                <button id="mixedRowers" class="rower-gender-option mixed" type="button" hidden>Sekasarja</button>
               </div>
-              <label>Soutaja<select id="rowerSelect"></select></label>
-              <label id="partnerRowerField" hidden>Pari<select id="partnerRowerSelect"></select></label>
-              <div class="rower-profile"><img id="rowerPortrait" src="heikki-karjaluoto.png" alt="" width="104" height="104" hidden draggable="false"><div><strong id="portraitName"></strong></div></div>
+              <label><span id="rowerSelectLabel">Soutaja</span><select id="rowerSelect"></select></label>
+              <label id="partnerRowerField" hidden aria-hidden="true">Pari<select id="partnerRowerSelect" tabindex="-1"></select></label>
+              <div id="rowerProfile" class="rower-profile"><div class="crew-portraits"><img id="rowerPortrait" src="heikki-karjaluoto.png" alt="" width="104" height="104" hidden draggable="false"><img id="partnerRowerPortrait" alt="" width="104" height="104" hidden draggable="false"></div><div><strong id="portraitName"></strong></div></div>
               <div id="rowerStats" class="stat-grid"></div>
               <button id="rowerNext" class="selection-next" type="button">Valitse soutajaksi</button>
             </section>
@@ -147,15 +148,15 @@
     </section>
   </main>
   <script src="data/config.js"></script>
-  <script src="data/rowers.js"></script>
+  <script src="data/rowers.js?v=2"></script>
   <script src="data/boats.js"></script>
   <script src="data/foods.js"></script>
-  <script src="data/portraits.js"></script>
+  <script src="data/portraits.js?v=2"></script>
   <script src="data/route.js?v=7"></script>
   <script src="data/dialogue.js"></script>
   <script src="js/state.js?v=6"></script>
   <script src="js/ui/hud.js"></script>
-  <script src="js/ui/selection.js"></script>
+  <script src="js/ui/selection.js?v=2"></script>
   <script src="js/ui/provisions.js"></script>
   <script src="js/audio/effects.js"></script>
   <script src="js/audio/chatter.js"></script>
@@ -164,10 +165,10 @@
   <script src="js/map/route.js"></script>
   <script src="js/map/render.js?v=31"></script>
   <script src="js/map/route-editor.js?v=25"></script>
-  <script src="js/map/characters.js"></script>
+  <script src="js/map/characters.js?v=2"></script>
   <script src="js/map/bridge.js?v=34"></script>
-  <script src="js/storage.js?v=6"></script>
+  <script src="js/storage.js?v=7"></script>
   <script src="js/race.js?v=8"></script>
-  <script src="js/main.js?v=8"></script>
+  <script src="js/main.js?v=9"></script>
 </body>
 </html>
