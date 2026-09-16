@@ -6,6 +6,7 @@ const ui = {
   qualityHint: document.getElementById('qualityHint'),
   phase: document.getElementById('phase'),
   phaseHelp: document.getElementById('phaseHelp'),
+  strokeTrack: document.querySelector('.stroke-track'),
   bar: document.getElementById('driveBar'),
   cursor: document.getElementById('strokeCursor'),
   feedback: document.getElementById('strokeFeedback'),
@@ -59,19 +60,24 @@ function setMeter(kind, value, hint) {
 }
 function updateStrokeGuide(now) {
   const phaseElapsed = (now - phaseStart) / 1000,
-    driveProgress = clamp(phaseElapsed / 1.35),
-    recoveryProgress = clamp(phaseElapsed / TARGET_RECOVERY);
+    driveProgress = clamp(phaseElapsed / TARGET_DRIVE),
+    recoveryProgress = clamp(phaseElapsed / targetStrokeRecovery());
+  let progress,
+    phase,
+    help;
   if (pressing) {
-    ui.bar.style.width = `${driveProgress * 100}%`;
-    ui.cursor.style.left = `${driveProgress * 100}%`;
-    ui.phase.textContent = driveProgress < .18 ? 'KIINNIOTTO' : driveProgress < .63 ? 'VETO' : 'IRROTUS';
-    ui.phaseHelp.textContent = driveProgress < .55 ? 'Pidä paine tasaisena' : driveProgress < .88 ? 'Vapauta vihreällä' : 'Vapauta nyt';
+    progress = driveProgress;
+    phase = driveProgress < .18 ? 'KIINNIOTTO' : driveProgress < .76 ? 'VETO' : 'IRROTUS';
+    help = driveProgress < .7 ? 'Pidä paine tasaisena' : driveProgress < 1 ? 'Vapauta vihreällä' : 'Vapauta nyt';
   } else {
-    ui.bar.style.width = '0%';
-    ui.cursor.style.left = `${(1 - recoveryProgress) * 100}%`;
-    ui.phase.textContent = recoveryProgress < 1 ? 'PALAUTUS' : 'VALMIS VETOON';
-    ui.phaseHelp.textContent = recoveryProgress < .7 ? 'Anna veneen liukua' : recoveryProgress < 1 ? 'Valmistaudu kiinniottoon' : 'Paina välilyönti pohjaan';
+    progress = 1 - recoveryProgress;
+    phase = recoveryProgress < 1 ? 'PALAUTUS' : 'VALMIS VETOON';
+    help = recoveryProgress < .7 ? 'Anna veneen liukua' : recoveryProgress < 1 ? 'Valmistaudu kiinniottoon' : 'Paina välilyönti pohjaan';
   }
+  ui.bar.style.transform = `scaleX(${progress})`;
+  ui.cursor.style.transform = `translate3d(${progress * strokeTrackWidth - 2}px,0,0)`;
+  if (ui.phase.textContent !== phase) ui.phase.textContent = phase;
+  if (ui.phaseHelp.textContent !== help) ui.phaseHelp.textContent = help;
 }
 function updateUI(now = performance.now()) {
   const forceUpdate = arguments.length === 0;
@@ -94,13 +100,13 @@ function updateUI(now = performance.now()) {
   if (strokeTimes.length) {
     if (quality > .86) {
       label = 'Erinomainen';
-      hint = '21 vetoa/min';
+      hint = `${targetStrokeRate()} vetoa/min`;
     } else if (quality > .62) {
       label = 'Hyvä';
       hint = 'pidä sama rytmi';
     } else {
       label = 'Rikkonainen';
-      hint = 'hae 21 vetoa/min';
+      hint = `hae ${targetStrokeRate()} vetoa/min`;
     }
   }
   ui.quality.textContent = label;
@@ -122,7 +128,7 @@ function updateUI(now = performance.now()) {
   ui.blisterHint.textContent = blisters < 5 ? 'Kädet kunnossa' : blisters < 20 ? 'Pieniä rakon alkuja' : blisters < 55 ? 'Rakot tuntuvat vedossa' : 'Kädet ovat pahasti rakoilla';
 }
 function updateLeaderboard() {
-  const racers = [{name: crewName(), distance, finishedAt: playerFinishedAt, player: true, raceType}, ...botRacers.map(bot => ({...bot, name: bot.rower.name, raceType: 'single'}))];
+  const racers = [{name: crewName(), distance, finishedAt: playerFinishedAt, player: true, raceType, startAt: 0}, ...botRacers.map(bot => ({...bot, name: bot.rower.name}))];
   racers.sort((a, b) => {
     if (a.finishedAt !== null || b.finishedAt !== null) {
       if (a.finishedAt === null) return 1;
@@ -132,19 +138,20 @@ function updateLeaderboard() {
     return b.distance - a.distance;
   });
   const womenOnly = womensLeaderboard.has(rower.name) && !leaderboardExpanded;
+  const sameSeriesRacers = racers.filter(racer => racer.raceType === raceType);
   const leaderboardRacers = womenOnly
-    ? racers.filter(racer => womensLeaderboard.has(racer.name))
-    : racers;
+    ? sameSeriesRacers.filter(racer => womensLeaderboard.has(racer.name))
+    : sameSeriesRacers;
   const playerRank = leaderboardRacers.findIndex(racer => racer.player) + 1;
-  const finished = racers.filter(racer => racer.finishedAt !== null).length;
+  const finished = leaderboardRacers.filter(racer => racer.finishedAt !== null).length;
   ui.leaderboardTitle.textContent = playerFinishedAt === null
-    ? raceType === 'double' ? 'PARISOUTU · 1/1' : `TILANNE · ${playerRank}/${leaderboardRacers.length}`
-    : `MAALISSA ${finished}/${racers.length} · SIJA ${playerRank}`;
+    ? `TILANNE · ${playerRank}/${leaderboardRacers.length}`
+    : `MAALISSA ${finished}/${leaderboardRacers.length} · SIJA ${playerRank}`;
   const ranked = leaderboardRacers.map((racer, index) => ({...racer, rank: index + 1}));
   const visible = leaderboardExpanded || womenOnly ? ranked : ranked.filter(racer => racer.rank <= 5 || racer.player);
   ui.leaderboard.innerHTML = visible.map(racer => {
-    const waiting = raceType === 'double' && racer.raceType === 'single' && raceElapsed < SINGLE_START_DELAY;
-    const status = waiting ? `lähtöön ${formatTime(SINGLE_START_DELAY - raceElapsed)}` : racer.finishedAt !== null ? formatTime(racer.finishedAt - (raceType === 'double' && racer.raceType === 'single' ? SINGLE_START_DELAY : 0)) : `${(racer.distance / 1000).toFixed(1).replace('.', ',')} km`;
+    const waiting = raceElapsed < racer.startAt;
+    const status = waiting ? `lähtöön ${formatTime(racer.startAt - raceElapsed)}` : racer.finishedAt !== null ? formatTime(racer.finishedAt - Math.max(0, racer.startAt)) : `${(racer.distance / 1000).toFixed(1).replace('.', ',')} km`;
     return `<li${racer.player ? ' class="player"' : ''}><b>${racer.rank}.</b><span>${racer.name}</span><small>${status}</small></li>`;
   }).join('');
 }

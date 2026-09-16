@@ -1,6 +1,5 @@
 // Wire inputs only after every system and data file has loaded.
-const developerMode = ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) &&
-  /(?:^|[?&])dev=1(?:&|$)/.test(globalThis.location?.search || '');
+const developerMode = /(?:^|[?&])dev=1(?:&|$)/.test(globalThis.location?.search || '');
 document.getElementById('totalDistance').textContent=(TOTAL/1000).toLocaleString('fi-FI');
 renderProvisions();
 materialSelect.add(new Option('Valitse materiaali…', ''));
@@ -9,9 +8,20 @@ provisionPackSelect.add(new Option('Valitse eväspaketti…', ''));
 Object.entries(provisionPacks).filter(([id]) => id !== 'legacy').forEach(([id, pack]) => provisionPackSelect.add(new Option(pack.name, id)));
 provisionPackSelect.value = 'athlete';
 boatSelect.add(new Option('Valitse vene…', ''));
-boats.forEach((b, i) => boatSelect.add(new Option(`${b.name} · ${materials[b.material].name}`, i)));
+function populateBoats(preferredName) {
+  boatSelect.innerHTML = '';
+  boatSelect.add(new Option('Valitse vene…', ''));
+  boats.forEach((b, i) => {
+    if (raceType === 'church' ? b.churchOnly : usesKayak() ? b.canoeOnly : !b.churchOnly && !b.canoeOnly) boatSelect.add(new Option(`${boatDisplayName(b)} · ${materials[b.material].name}`, i));
+  });
+  const allowed = b => raceType === 'church' ? b.churchOnly : usesKayak() ? b.canoeOnly : !b.churchOnly && !b.canoeOnly;
+  const preferredIndex = boats.findIndex(b => b.name === preferredName && allowed(b));
+  const fallbackIndex = boats.findIndex(allowed);
+  boatSelect.value = String(preferredIndex >= 0 ? preferredIndex : fallbackIndex);
+}
+populateBoats(DEFAULT_CREW.boat);
 selectDefaultCrew();
-document.getElementById('maleRowers').onclick = () => { selectRowerGender('male'); if (raceType === 'double') populatePartnerRowers(); selectCrew(); };
+document.getElementById('maleRowers').onclick = () => { selectRowerGender('male'); if (isCrewRace()) populatePartnerRowers(); selectCrew(); };
 document.getElementById('femaleRowers').onclick = () => { selectRowerGender('female'); selectCrew(); };
 document.getElementById('mixedRowers').onclick = () => {
   if (raceType !== 'double') return;
@@ -19,13 +29,37 @@ document.getElementById('mixedRowers').onclick = () => {
   populatePartnerRowers();
   selectCrew();
 };
-document.getElementById('singleRace').onclick = () => setRaceType('single');
-document.getElementById('doubleRace').onclick = () => setRaceType('double');
-rowerSelect.onchange = () => {
+document.getElementById('singleRace').onclick = () => { setRaceType('single'); showSelectionStep('single-start'); };
+document.getElementById('doubleRace').onclick = () => { setRaceType('double'); showSelectionStep('double-start'); };
+document.getElementById('alternatingRace').onclick = () => { setRaceType('alternating'); showSelectionStep('alternating-start'); };
+document.getElementById('churchRace').onclick = () => { setRaceType('church'); showSelectionStep('church'); };
+document.getElementById('canoeRace').hidden = true;
+document.getElementById('canoeRace').disabled = true;
+for (const [id, start] of [['churchThursdayTour', 'thursday'], ['churchFridayNight', 'night'], ['churchSaturday', 'saturday']]) {
+  document.getElementById(id).onclick = () => { setChurchStart(start); selectCrew(); showSelectionStep(1); };
+}
+document.getElementById('churchStartBack').onclick = () => showSelectionStep(isChurchRace() ? 'church' : raceType === 'alternating' ? 'alternating-start' : raceType === 'double' ? 'double-start' : 'single-start');
+for (const [id, start] of [['singleThursdayTour', 'thursday'], ['singleSaturday', 'saturday']]) {
+  document.getElementById(id).onclick = () => {
+    setSingleStart(start);
+    const preferredRower = start === 'saturday' ? rowers.findIndex(candidate => candidate.name === DEFAULT_CREW.rower) : undefined;
+    selectRowerGender('male', preferredRower);
+    selectCrew();
+    showSelectionStep(1);
+  };
+}
+for (const [id, start] of [['alternatingThursdayTour', 'thursday'], ['alternatingSaturday', 'saturday']]) {
+  document.getElementById(id).onclick = () => { setAlternatingStart(start); selectRowerGender('male'); populatePartnerRowers(); selectCrew(); showSelectionStep(1); };
+}
+for (const [id, start] of [['doubleThursdayTour', 'thursday'], ['doubleSaturday', 'saturday']]) {
+  document.getElementById(id).onclick = () => { setDoubleStart(start); selectRowerGender('male'); populatePartnerRowers(); selectCrew(); showSelectionStep(1); };
+}
+function syncRowerSelection() {
   const previousPartner = partnerRowerSelect.value === '' ? -1 : Number(partnerRowerSelect.value);
-  if (raceType === 'double') populatePartnerRowers(previousPartner);
+  if (isCrewRace()) populatePartnerRowers(previousPartner);
   selectCrew();
-};
+}
+rowerSelect.oninput = rowerSelect.onchange = syncRowerSelection;
 partnerRowerSelect.onchange = boatSelect.onchange = materialSelect.onchange = provisionPackSelect.onchange = selectCrew;
 document.getElementById('rowerNext').onclick = () => {
   if (rowerSelect.value !== '') showSelectionStep(2);
@@ -134,7 +168,7 @@ addEventListener('pagehide', pauseRace);
 function loop(now) {
   const realDt = Math.max(0, Math.min(.04, (now - last) / 1000));
   last = now;
-  if (previewMode && !previewPaused && now - previewLastStroke >= TARGET_CYCLE * 1000) {
+  if (previewMode && !previewPaused && now - previewLastStroke >= targetStrokeCycle() * 1000) {
     previewLastStroke = now;
     strokeTimes.push(now);
     strokeTimes = strokeTimes.filter(time => now - time < 15000);

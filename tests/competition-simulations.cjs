@@ -40,12 +40,12 @@ for (let race = 1; race <= RACES; race++) {
     }
     const finishedBots=botRacers.filter(bot=>bot.finishedAt!==null).sort((a,b)=>a.finishedAt-b.finishedAt);
     const winningBot=finishedBots[0];
-    ({finished:distance>=TOTAL,time:playerFinishedAt,place,winner:winningBot?.finishedAt<playerFinishedAt?winningBot.rower.name:rower.name,winnerTime:Math.min(playerFinishedAt,winningBot?.finishedAt??Infinity),botFinishes:finishedBots.length,totalBots:botRacers.length});
+    ({finished:distance>=TOTAL,time:playerFinishedAt,place,seriesSize:botRacers.filter(bot=>bot.raceType===raceType).length+1,winner:winningBot?.finishedAt<playerFinishedAt?winningBot.rower.name:rower.name,winnerTime:Math.min(playerFinishedAt,winningBot?.finishedAt??Infinity),botFinishes:finishedBots.length,totalBots:botRacers.length});
   `));
 }
 
 assert.equal(results.length, RACES);
-assert(results.every(result=>result.finished&&result.place>=1&&result.place<=25));
+assert(results.every(result=>result.finished&&result.place>=1&&result.place<=result.seriesSize), JSON.stringify(results));
 assert(results.every(result=>result.time>=4*3600&&result.time<=9*3600));
 
 const average=(key)=>results.reduce((sum,result)=>sum+result[key],0)/results.length;

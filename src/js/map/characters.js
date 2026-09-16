@@ -27,6 +27,50 @@ function drawPortraitImage(c, portrait, name, x, y, size) {
     size
   );
 }
+const churchBoatAbbreviations = {
+  'Hämeenlinnan Latu': 'HML Latu',
+  'Keravan Urheilijat': 'Keravan Urh.',
+  'Hullun Hirven Soutajat': 'Hullut Hirvet',
+  'Kivennavan Soutajat': 'Kivennapa',
+  'Kinkun Kiertäjät': 'Kinkun Kiert.',
+  'Pääkaupunkiseudun Taksit': 'PKS Taksit',
+  'Joutsan Soututeam': 'Joutsa',
+  'Tuohikotin Rannanpojat': 'Tuohikotti',
+  'Nesteen Soutajat Porvoo': 'Neste Porvoo',
+  'UPM-Kymmene / UPM-Metsä Savonlinna': 'UPM Savonlinna',
+  'Metso Paper Suvituuli': 'Metso Suvituuli',
+  'Mikkelin Soutajat': 'Mikkelin Sout.',
+  'Nesteen Soutajat': 'Nesteen Sout.',
+  'Suvituulitiimi Turku': 'Suvituuli Turku',
+  'Ikaalisten Soutajat': 'Ikaalisten',
+  'Kaukaan Lylyn Soutajat': 'Kaukaan Lyly',
+  'Vihtavuoren Pamaus': 'Vihtavuori',
+  'Luumäen Kirkkosoutujoukkue': 'Luumäki',
+  'AKT:läiset Vesillä': 'AKT Vesillä',
+  'Lännentien Soutajat': 'Lännentie',
+  'Soutavat Automiehet': 'Automiehet'
+};
+function churchBoatLabel(name) {
+  if (churchBoatAbbreviations[name]) return churchBoatAbbreviations[name];
+  if (name.length <= 16) return name;
+  const words = name.split(/\s+/).filter(Boolean);
+  return words.length > 1 ? words.map(word => word[0]).join('').toLocaleUpperCase('fi-FI') : name.slice(0, 15);
+}
+function drawChurchBoatLabel(c, name, length = 46) {
+  c.save();
+  c.rotate(-Math.PI / 2);
+  c.font = '700 5px Arial, sans-serif';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.lineJoin = 'round';
+  c.lineWidth = 2.2;
+  c.strokeStyle = 'rgba(8,15,28,.95)';
+  c.fillStyle = '#fff7bd';
+  const label = churchBoatLabel(name);
+  c.strokeText(label, 0, .3, length);
+  c.fillText(label, 0, .3, length);
+  c.restore();
+}
 function boat(x, y, angle, now) {
   ctx.save();
   ctx.translate(x, y);
@@ -37,22 +81,6 @@ function boat(x, y, angle, now) {
     ctx.beginPath();
     ctx.ellipse(0, 12, 8 + 10 * (1 - strokePulse), 3 + 5 * (1 - strokePulse), 0, 0, Math.PI * 2);
     ctx.stroke();
-  }
-  function botBoat(x, y, angle, bot) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle + Math.PI / 2);
-    ctx.fillStyle = bot.finishedAt === null ? '#f3d36b' : '#b6b6a2';
-    ctx.strokeStyle = '#332b20';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, -8);
-    ctx.quadraticCurveTo(4, -2, 3, 8);
-    ctx.quadraticCurveTo(0, 11, -3, 8);
-    ctx.quadraticCurveTo(-4, -2, 0, -8);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
   }
   const gold = isGoldenBoat();
   if (gold) {
@@ -69,14 +97,15 @@ function boat(x, y, angle, now) {
   }
   ;
   ctx.lineWidth = 1.5;
+  const church = raceType === 'church', canoe = usesKayak();
   ctx.beginPath();
-  ctx.moveTo(0, -14);
-  ctx.quadraticCurveTo(6, -4, 4, 13);
-  ctx.quadraticCurveTo(0, 17, -4, 13);
-  ctx.quadraticCurveTo(-6, -4, 0, -14);
+  ctx.moveTo(0, church ? -28 : canoe ? -18 : -14);
+  ctx.quadraticCurveTo(church ? 7 : canoe ? 3 : 6, -4, church ? 5 : canoe ? 2.5 : 4, church ? 26 : canoe ? 17 : 13);
+  ctx.quadraticCurveTo(0, church ? 31 : canoe ? 20 : 17, church ? -5 : canoe ? -2.5 : -4, church ? 26 : canoe ? 17 : 13);
+  ctx.quadraticCurveTo(church ? -7 : canoe ? -3 : -6, -4, 0, church ? -28 : canoe ? -18 : -14);
   ctx.fill();
   ctx.stroke();
-  const t = pressing ? clamp((now - phaseStart) / 1000) : clamp(1 - (now - phaseStart) / 1000 / TARGET_RECOVERY);
+  const t = pressing ? clamp((now - phaseStart) / 1000) : clamp(1 - (now - phaseStart) / 1000 / targetStrokeRecovery());
   ctx.fillStyle = '#161d19';
   ctx.beginPath();
   ctx.arc(0, 3 - 7 * t, 3, 0, Math.PI * 2);
@@ -112,7 +141,8 @@ function boat(x, y, angle, now) {
   }
   const bladeY = 11 - 22 * t,
     bladeX = 12 - 7 * t,
-    oarSeatOffsets = raceType === 'double' && partnerRower ? [-5, 7] : [0];
+    alternating = raceType === 'alternating' && partnerRower,
+    oarSeatOffsets = church ? [-20, -14, -8, -2, 4, 10, 16] : canoe ? [] : raceType === 'double' && partnerRower ? [-5, 7] : alternating ? [6] : [0];
   ctx.strokeStyle = '#f1dfbd';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -122,6 +152,11 @@ function boat(x, y, angle, now) {
     ctx.moveTo(2, 1 + offset);
     ctx.lineTo(bladeX, bladeY + offset);
   });
+  if (alternating) {
+    ctx.moveTo(1, -5);
+    ctx.lineTo(10, -10 + 12 * t);
+  }
+  if (canoe) { ctx.moveTo(-9, -5 + 10 * t); ctx.lineTo(9, 5 - 10 * t); }
   ctx.stroke();
   ctx.strokeStyle = pressing ? 'rgba(220,246,238,.85)' : 'rgba(220,246,238,.25)';
   ctx.lineWidth = 3;
@@ -132,43 +167,100 @@ function boat(x, y, angle, now) {
     ctx.moveTo(bladeX - 2, bladeY + offset);
     ctx.lineTo(bladeX + 3, bladeY + offset);
   });
+  if (alternating) {
+    ctx.moveTo(8, -10 + 12 * t);
+    ctx.lineTo(13, -10 + 12 * t);
+  }
   ctx.stroke();
+  if (church) drawChurchBoatLabel(ctx, crewName(), 50);
   ctx.restore();
+}
+function botStrokePosition(bot) {
+  if (bot.finishedAt !== null || bot.speed < .2 || raceElapsed < bot.startAt) return 0;
+  const strokesPerMinute = clamp(18 + bot.speed * .9, 19, 31);
+  const cycle = 60 / strokesPerMinute;
+  const phase = ((raceElapsed - bot.startAt + bot.lane * .37) % cycle + cycle) % cycle / cycle;
+  const driveFraction = .38;
+  if (phase < driveFraction) return .5 - .5 * Math.cos(Math.PI * phase / driveFraction);
+  return .5 + .5 * Math.cos(Math.PI * (phase - driveFraction) / (1 - driveFraction));
 }
 function botBoat(x, y, angle, bot) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle + Math.PI / 2);
-  ctx.fillStyle = bot.finishedAt === null ? '#f3d36b' : '#b6b6a2';
-  ctx.strokeStyle = '#332b20';
-  ctx.lineWidth = 1;
+  const church = bot.raceType === 'church', canoe = bot.raceType === 'canoe', double = ['double', 'alternating', 'church'].includes(bot.raceType);
+  const bow = church ? -28 : canoe ? -18 : -14, stern = church ? 26 : canoe ? 17 : 13, halfWidth = church ? 7 : canoe ? 3 : 6;
+  const t = botStrokePosition(bot), bladeY = 11 - 22 * t, bladeX = 12 - 7 * t;
+  const moving = bot.finishedAt === null && bot.speed >= .2 && raceElapsed >= bot.startAt;
+  ctx.fillStyle = bot.finishedAt === null ? '#b98247' : '#777b78';
+  ctx.strokeStyle = bot.finishedAt === null ? '#efd095' : '#b6b6a2';
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(0, -8);
-  ctx.quadraticCurveTo(4, -2, 3, 8);
-  ctx.quadraticCurveTo(0, 11, -3, 8);
-  ctx.quadraticCurveTo(-4, -2, 0, -8);
+  ctx.moveTo(0, bow);
+  ctx.quadraticCurveTo(halfWidth, -4, halfWidth - 1, stern);
+  ctx.quadraticCurveTo(0, stern + (church ? 5 : 4), -halfWidth + 1, stern);
+  ctx.quadraticCurveTo(-halfWidth, -4, 0, bow);
   ctx.fill();
   ctx.stroke();
+
+  const seats = church ? [-18, -12, -6, 0, 6, 12, 18] : bot.raceType === 'double' ? [-4, 5] : bot.raceType === 'alternating' ? [5] : canoe ? [] : [0];
+  ctx.fillStyle = '#202820';
+  for (const seat of seats) {
+    ctx.beginPath();
+    ctx.arc(0, seat - 7 * t, church ? 1.8 : 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.strokeStyle = '#f1dfbd';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (const seat of seats) {
+      ctx.moveTo(-2, seat);
+      ctx.lineTo(-bladeX, bladeY + seat);
+      ctx.moveTo(2, seat);
+      ctx.lineTo(bladeX, bladeY + seat);
+  }
+  if (bot.raceType === 'alternating') { ctx.moveTo(1, -5); ctx.lineTo(10, -10 + 12 * t); }
+  if (canoe) { ctx.moveTo(-9, -5 + 10 * t); ctx.lineTo(9, 5 - 10 * t); }
+  ctx.stroke();
+  ctx.strokeStyle = moving ? 'rgba(220,246,238,.82)' : 'rgba(220,246,238,.25)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (const seat of seats) {
+    ctx.moveTo(-bladeX - 3, bladeY + seat); ctx.lineTo(-bladeX + 2, bladeY + seat);
+    ctx.moveTo(bladeX - 2, bladeY + seat); ctx.lineTo(bladeX + 3, bladeY + seat);
+  }
+  if (bot.raceType === 'alternating') { ctx.moveTo(8, -10 + 12 * t); ctx.lineTo(13, -10 + 12 * t); }
+  if (canoe) { ctx.moveTo(-11, -7 + 10 * t); ctx.lineTo(-7, -3 + 10 * t); ctx.moveTo(7, 3 - 10 * t); ctx.lineTo(11, 7 - 10 * t); }
+  ctx.stroke();
+  if (church) drawChurchBoatLabel(ctx, bot.rower.name, 44);
   ctx.restore();
 }
 function drawBotPortrait(p, bot) {
-  const portrait = portraits[bot.rower.name];
-  if (!portrait?.complete || !portrait.naturalWidth) return;
-  displayCtx.save();
-  displayCtx.imageSmoothingEnabled = true;
-  displayCtx.imageSmoothingQuality = 'high';
-  const mask = botPortraitMask(bot.rower.name);
-  if (mask) {
-    displayCtx.beginPath();
-    mask.forEach(([x, y], i) => displayCtx[i ? 'lineTo' : 'moveTo'](p.x - 12 + x * 24, p.y - 17 + y * 24));
-    displayCtx.closePath();
-    displayCtx.clip();
-  }
-  drawPortraitImage(displayCtx, portrait, bot.rower.name, p.x - 12, p.y - 17, 24);
-  displayCtx.restore();
+  (bot.crew || [bot.rower.name]).forEach((name, index, crew) => {
+    const portrait = portraits[name];
+    if (!portrait?.complete || !portrait.naturalWidth) return;
+    const size = crew.length === 2 ? 19 : 24;
+    displayCtx.save();
+    displayCtx.imageSmoothingEnabled = true;
+    displayCtx.imageSmoothingQuality = 'high';
+    displayCtx.translate(p.x, p.y);
+    displayCtx.rotate(p.angle + Math.PI / 2);
+    displayCtx.translate(0, crew.length === 2 ? -(size + 2) / 2 + index * (size + 2) : 0);
+    displayCtx.rotate(-p.angle - Math.PI / 2);
+    const x = -size / 2, y = -size * .68;
+    const mask = botPortraitMask(name);
+    if (mask) {
+      displayCtx.beginPath();
+      mask.forEach(([mx, my], i) => displayCtx[i ? 'lineTo' : 'moveTo'](x + mx * size, y + my * size));
+      displayCtx.closePath();
+      displayCtx.clip();
+    }
+    drawPortraitImage(displayCtx, portrait, name, x, y, size);
+    displayCtx.restore();
+  });
 }
 function drawRowerPortrait(p, now) {
-  const crew = raceType === 'double' && partnerRower ? [rower, partnerRower] : [rower];
+  const crew = raceType !== 'single' && partnerRower ? [rower, partnerRower] : [rower];
   crew.forEach((crewRower, index) => {
     const portrait = portraits[crewRower.name];
     if (!portrait?.complete || !portrait.naturalWidth) return;
@@ -178,7 +270,7 @@ function drawRowerPortrait(p, now) {
     c.imageSmoothingQuality = 'high';
     c.translate(p.x, p.y);
     c.rotate(p.angle + Math.PI / 2);
-    c.translate(0, crew.length === 2 ? -6 + index * 12 : -1);
+    c.translate(0, crew.length === 2 ? -12 + index * 24 : -1);
     c.rotate(-p.angle - Math.PI / 2);
     const mask = crewRower === rower ? portraitMask() : botPortraitMask(crewRower.name);
     if (mask) {

@@ -44,8 +44,8 @@ function up(e) {
     phaseStart = performance.now();
     const tolerance = (.65 + crewStat('skill') / 99 * .7) * (.72 + .28 * techniqueControl);
     const drive = Math.exp(-Math.pow((lastDrive - TARGET_DRIVE) / (.38 * tolerance), 2)),
-      recovery = Math.exp(-Math.pow((lastRecovery - TARGET_RECOVERY) / (.65 * tolerance), 2)),
-      cycle = Math.exp(-Math.pow((lastDrive + lastRecovery - TARGET_CYCLE) / (.45 * tolerance), 2));
+      recovery = Math.exp(-Math.pow((lastRecovery - targetStrokeRecovery()) / (.65 * tolerance), 2)),
+      cycle = Math.exp(-Math.pow((lastDrive + lastRecovery - targetStrokeCycle()) / (.45 * tolerance), 2));
     quality = .45 * drive + .30 * recovery + .25 * cycle;
     rowerChatter.badStroke(quality, raceElapsed);
     strokePulse = 1;
@@ -61,12 +61,12 @@ function up(e) {
     } else if (lastDrive > 1.28) {
       ui.feedback.textContent = 'JÄI ROIKKUMAAN';
       ui.feedbackDetail.textContent = 'Irrota aikaisemmin, kun kahva tulee vihreälle.';
-    } else if (lastRecovery < TARGET_RECOVERY - .45) {
+    } else if (lastRecovery < targetStrokeRecovery() - .45) {
       ui.feedback.textContent = 'KIIRE PALAUTUKSESSA';
       ui.feedbackDetail.textContent = 'Anna veneen liukua ennen uutta kiinniottoa.';
     } else {
       ui.feedback.textContent = 'HYVÄ VETO';
-      ui.feedbackDetail.textContent = 'Hae vielä tasaisempi 21 vedon rytmi.';
+      ui.feedbackDetail.textContent = `Hae vielä tasaisempi ${targetStrokeRate()} vedon rytmi.`;
     }
   }
 }

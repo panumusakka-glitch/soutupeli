@@ -26,7 +26,7 @@ game.run(`
   showFinishReport(18000, 2);
 `);
 
-assert.match(game.nodes.finishStats.markup, new RegExp(`2/${game.run('rowers.length')}`));
+assert.match(game.nodes.finishStats.markup, new RegExp(`2/${game.run("botRacers.filter(bot => bot.raceType === raceType).length + 1")}`));
 assert.match(game.nodes.finishStats.markup, /12,4 km\/h/);
 assert.match(game.nodes.finishStats.markup, /85 %/);
 assert.match(game.nodes.finishStats.markup, /0,3 l/);

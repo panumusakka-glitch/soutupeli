@@ -25,6 +25,7 @@ function reset() {
   ferryDockWait = 8;
   distance = START_GRID_DISTANCE;
   playerRouteChoice = 'primary';
+  playerLane = playerLaneTarget = 0;
   resetBotRacers();
   strokeTimes = [];
   lastDrive = lastRecovery = 0;
@@ -87,12 +88,18 @@ function reset() {
   updateUI();
 }
 
-const RACE_LANES = [-2, -1, 0, 1, 2];
+const RACE_LANES = [-3, -2, -1, 0, 1, 2, 3];
 const START_GRID_DISTANCE = 12;
 const START_GRID_ROW_GAP = 4;
+const BOT_LAUNCH_ACCELERATION_SECONDS = 1.5;
 const PREVIEW_RACE_SECONDS = 5 * 3600;
 const RACE_TACTICS = new Set(['aggressive', 'conservative', 'sprint', 'steady']);
 const SINGLE_START_DELAY = 20 * 60;
+const ALTERNATING_START_DELAY = 10 * 60;
+const CHURCH_START_DELAY = 30 * 60;
+function seriesStartOffset(type) {
+  return type === 'church' ? -CHURCH_START_DELAY : type === 'double' ? -SINGLE_START_DELAY : type === 'alternating' ? -ALTERNATING_START_DELAY : 0;
+}
 function randomPlayerRouteChoice() {
   return Math.random() < .95 ? 'primary' : 'alternative';
 }
@@ -123,11 +130,39 @@ function randomWindDirection() {
 function initialRaceLane(index) {
   return RACE_LANES[index % RACE_LANES.length];
 }
+function doubleCrewRower(crew) {
+  const members = crew.rowers.map(name => rowers.find(candidate => candidate.name === name));
+  const average = key => members.reduce((sum, member) => sum + member[key], 0) / members.length;
+  return {
+    name: crew.rowers.join(' & '), speed: average('speed'), endurance: average('endurance'),
+    skill: average('skill'), cramp: average('cramp'), hands: average('hands'),
+    stomach: average('stomach'), power: average('power'), voiceGender: doubleCrewCategory(crew)
+  };
+}
+function botEntries() {
+  const singles = (raceType === 'single' ? singleRowersForStart() : singleRowersForStart('saturday'))
+    .filter(candidate => !candidate.canoeOnly && (raceType !== 'single' || candidate.name !== rower.name))
+    .map(candidate => ({rower: candidate, raceType: 'single', crew: [candidate.name]}));
+  const doubles = (raceType === 'double' ? crewsForRaceType('double') : doubleCrews)
+    .filter(crew => raceType !== 'double' || !crew.rowers.includes(rower.name))
+    .map(crew => ({rower: doubleCrewRower(crew), raceType: 'double', crew: crew.rowers.slice()}));
+  const alternating = (raceType === 'alternating' ? crewsForRaceType('alternating') : alternatingCrews)
+    .filter(crew => raceType !== 'alternating' || !crew.rowers.includes(rower.name))
+    .map(crew => ({rower: doubleCrewRower(crew), raceType: 'alternating', crew: crew.rowers.slice()}));
+  const churches = (raceType === 'church' ? churchCrewsForStart() : [])
+    .filter(crew => raceType !== 'church' || crew.name !== rower.name)
+    .map(crew => ({rower: crew, raceType: 'church', crew: [crew.name]}));
+  const canoes = canoeRowers.filter(candidate => candidate.name !== rower.name)
+    .map(candidate => ({rower: candidate, raceType: 'canoe', crew: [candidate.name]}));
+  if (raceType === 'church') return isTourRace() ? [...churches, ...canoes] : churches;
+  if (raceType === 'canoe') return canoes;
+  return [...churches, ...doubles, ...alternating, ...singles, ...(isTourRace() ? canoes : [])];
+}
 function resetBotRacers() {
-  botRacers = rowers
-    .filter(r => r.name !== rower.name && (raceType !== 'double' || r.name !== partnerRower?.name))
-    .map((r, index) => ({
-      rower: r,
+  botRacers = botEntries()
+    .map((entry, index) => ({
+      ...entry,
+      startAt: seriesStartOffset(entry.raceType) - seriesStartOffset(raceType),
       distance: START_GRID_DISTANCE + (Math.floor(index / RACE_LANES.length) - 2) * START_GRID_ROW_GAP,
       speed: 0,
       lane: initialRaceLane(index),
@@ -144,10 +179,11 @@ function resetBotRacers() {
       sodiumBalance: 700,
       hydration: 100,
       cramps: 0,
-      nextFuelAt: raceType === 'double' ? SINGLE_START_DELAY : 0,
+      nextFuelAt: Math.max(0, seriesStartOffset(entry.raceType) - seriesStartOffset(raceType)),
       day: null,
       finishedAt: null
     }));
+  syncTourCanoePair();
 }
 
 function randomRaceDay(r) {
@@ -185,7 +221,8 @@ function randomRaceDay(r) {
     blisters: r.blisterImmune ? 0 : majorProblem ? 12 : clamp(-variation * 6, 0, 12),
     fadeAt: TOTAL * (majorProblem ? (.18 + Math.random() * .20) : (.20 + Math.random() * .58)),
     fade: majorProblem ? .30 + Math.random() * .15 : Math.random() < .62 ? .08 + Math.random() * .18 : 0,
-    tactic
+    tactic,
+    esaBeatsAri: r.name === 'Esa Melanen' ? Math.random() < .10 : false
   };
 }
 function validRaceDay(day) {
@@ -229,8 +266,16 @@ function prepareRaceDay() {
     bot.sodiumBalance = 700;
     bot.hydration = bot.day.hydration;
     bot.cramps = bot.day.cramps;
-    bot.nextFuelAt = raceType === 'double' ? SINGLE_START_DELAY : 0;
+    bot.nextFuelAt = bot.startAt > 0 ? bot.startAt : 0;
   }
+}
+function simulateDoubleHeadStart() {
+  const firstStart = Math.min(0, ...botRacers.map(bot => bot.startAt));
+  const playerElapsed = raceElapsed;
+  for (raceElapsed = firstStart; raceElapsed < 0; raceElapsed += 2) {
+    updateBotRacers(2, {wind: 0, sweat: 1});
+  }
+  raceElapsed = playerElapsed;
 }
 function previewRaceDay(day) {
   // The preview is a visual test drive, not an endurance simulation.
@@ -395,20 +440,157 @@ function updateBotBody(bot, dt, s, effort, actualPower) {
   bot.cramps = clamp(bot.cramps + (growth - recovery) * hour, 0, 100);
 }
 function trafficLane(racer) {
-  return racer.player ? 0 : racer.lane;
+  return racer.player ? playerLane : racer.lane;
 }
-function openLaneFor(bot, racers) {
-  const preferred = [bot.routeBias, -2, -1, 1, 2, 0]
+function openLaneFor(actor, racers, allowStationaryBypass = false) {
+  const currentLane = trafficLane(actor), routeBias = actor.player ? 0 : actor.routeBias;
+  const preferred = RACE_LANES.slice()
+    .sort((a, b) => Math.abs(a - currentLane) - Math.abs(b - currentLane) || Math.abs(a - routeBias) - Math.abs(b - routeBias))
     .filter((lane, index, lanes) => lanes.indexOf(lane) === index);
-  return preferred.find(lane => !racers.some(racer =>
-    racer !== bot &&
-    Math.abs(racer.distance - bot.distance) < 58 &&
-    Math.abs(trafficLane(racer) - lane) < .7
-  ));
+  const laneIsFree = lane => !racers.some(racer => racer !== actor && racer.finishedAt == null &&
+    Math.abs(racer.distance - actor.distance) < 58 &&
+    Math.abs(trafficLane(racer) - lane) < .7);
+  const normalLane = preferred.find(lane => {
+    const routeChoice = actor.player ? playerRouteChoice : actor.routeChoice;
+    if (waterRoutePixels && anticipatedLaneFraction(actor.distance, lane * 4.5, routeChoice) < .98) return false;
+    return laneIsFree(lane);
+  });
+  if (normalLane !== undefined || !allowStationaryBypass || !waterRoutePixels) return normalLane;
+  const point = racerPointOnWater(
+    raceMapProgressForDistance(actor.distance), 805, 851,
+    actor.player ? playerRouteChoice : actor.routeChoice
+  );
+  return preferred.find(lane => availableLaneFraction(point, lane * 4.5) >= .98 && laneIsFree(lane));
+}
+const TRAFFIC_ACTIVE_DISTANCE = 500;
+const TRAFFIC_PASSING_RANGE = 52;
+const TRAFFIC_FOLLOW_GAP = 4;
+const ESA_ARI_FINISH_STRAIGHT = 500;
+function racerAheadInLane(actor, racers, range = TRAFFIC_PASSING_RANGE) {
+  return racers
+    .filter(racer => racer !== actor && racer.finishedAt == null && racer.distance > actor.distance &&
+      racer.distance - actor.distance < range &&
+      Math.abs(trafficLane(racer) - trafficLane(actor)) < .7)
+    .sort((a, b) => a.distance - b.distance)[0];
+}
+function trafficLimitedDistance(actor, proposedDistance, racers) {
+  if (actor.distance < TRAFFIC_ACTIVE_DISTANCE) return proposedDistance;
+  const ahead = racerAheadInLane(actor, racers, Math.max(TRAFFIC_PASSING_RANGE, proposedDistance - actor.distance + TRAFFIC_FOLLOW_GAP));
+  // A stopped racer must never deadlock the route. Lane selection gets the
+  // first chance to route around it; this final exception keeps progress
+  // possible even where the authored water corridor exposes no full lane.
+  if (ahead && ahead.speed <= .15) return proposedDistance;
+  return ahead ? Math.min(proposedDistance, Math.max(actor.distance, ahead.distance - TRAFFIC_FOLLOW_GAP)) : proposedDistance;
+}
+function moveLaneToward(currentLane, targetLane, dt) {
+  const difference = targetLane - currentLane;
+  if (Math.abs(difference) < .001) return targetLane;
+  // A distant target used to produce a proportionally faster sideways leap.
+  // Cap lateral velocity so changing several lanes takes longer than changing
+  // one while retaining a gentle ease-out on arrival.
+  const easedStep = Math.abs(difference) * (1 - Math.exp(-.9 * dt)),
+    maximumStep = .22 * dt,
+    step = Math.min(Math.abs(difference), easedStep, maximumStep);
+  return currentLane + Math.sign(difference) * step;
+}
+function updatePlayerLane(dt) {
+  const player = {player: true, distance, speed}, racers = [player, ...botRacers];
+  if (ferryBlocksRacer(distance)) {
+    playerLaneTarget = ferryAvoidanceLane();
+  } else if (distance >= TRAFFIC_ACTIVE_DISTANCE) {
+    const ahead = racerAheadInLane(player, racers);
+    if (ahead && speed > ahead.speed + .12) {
+      const lane = openLaneFor(player, racers, ahead.speed <= .15);
+      if (lane !== undefined) playerLaneTarget = lane;
+    } else if (Math.abs(playerLaneTarget) > .1) {
+      const centreOpen = !racers.some(racer => racer !== player &&
+        Math.abs(racer.distance - distance) < TRAFFIC_PASSING_RANGE && Math.abs(trafficLane(racer)) < .7);
+      if (centreOpen) playerLaneTarget = 0;
+    }
+  }
+  const laneDt = previewMode && previewPlaybackRate > 0 ? dt / previewPlaybackRate : dt;
+  playerLane = moveLaneToward(playerLane, playerLaneTarget, laneDt);
+}
+function updateEsaAriTactic() {
+  const esa = botRacers.find(bot => bot.raceType === 'single' && bot.rower.name === 'Esa Melanen');
+  if (!esa || !esa.day) return;
+  const ari = raceType === 'single' && rower.name === 'Ari Kankkunen'
+    ? {player: true, distance, speed, finishedAt: playerFinishedAt}
+    : botRacers.find(bot => bot.raceType === 'single' && bot.rower.name === 'Ari Kankkunen');
+  if (!ari || raceElapsed < esa.startAt || raceElapsed < (ari.startAt || 0)) return;
+
+  if (typeof esa.day.esaBeatsAri !== 'boolean') esa.day.esaBeatsAri = Math.random() < .10;
+  const onFinishStraight = Math.max(esa.distance, ari.distance) >= TOTAL - ESA_ARI_FINISH_STRAIGHT;
+  const esaShouldLead = onFinishStraight && esa.day.esaBeatsAri;
+  const leader = esaShouldLead ? esa : ari;
+  const follower = esaShouldLead ? ari : esa;
+  if (leader.finishedAt !== null && leader.finishedAt < raceElapsed) return;
+
+  if (!onFinishStraight) {
+    follower.distance = Math.max(0, leader.distance - TRAFFIC_FOLLOW_GAP);
+    follower.speed = leader.speed;
+  } else if (esaShouldLead) {
+    esa.distance = Math.min(TOTAL, Math.max(esa.distance, ari.distance + TRAFFIC_FOLLOW_GAP));
+    if (!ari.player && ari.finishedAt === null) ari.distance = Math.min(ari.distance, esa.distance - TRAFFIC_FOLLOW_GAP);
+  } else if (esa.finishedAt === null) {
+    esa.distance = Math.min(esa.distance, Math.max(0, ari.distance - TRAFFIC_FOLLOW_GAP));
+    esa.speed = ari.speed;
+  }
+  if (!onFinishStraight) {
+    esa.lane = esa.laneTarget = trafficLane(ari);
+    esa.routeChoice = ari.player ? playerRouteChoice : ari.routeChoice;
+  }
+
+  if (esa.distance >= TOTAL) {
+    esa.distance = TOTAL;
+    esa.finishedAt = raceElapsed;
+  }
+  if (ari !== esa && ari.finishedAt === raceElapsed && follower === ari) {
+    ari.distance = TOTAL - TRAFFIC_FOLLOW_GAP;
+    ari.finishedAt = null;
+  } else if (esa.finishedAt === raceElapsed && follower === esa) {
+    esa.distance = TOTAL - TRAFFIC_FOLLOW_GAP;
+    esa.finishedAt = null;
+  }
+}
+function syncTourCanoePair() {
+  if (!isTourRace()) return;
+  const names = ['Tero Tiitu', 'Juho Moilanen'];
+  const playerName = usesKayak() && names.includes(rower.name) ? rower.name : null;
+  const bots = Object.fromEntries(names.map(name => [name,
+    botRacers.find(bot => bot.raceType === 'canoe' && bot.rower.name === name)
+  ]));
+  if (!playerName && (!bots[names[0]] || !bots[names[1]])) return;
+
+  if (playerName) {
+    const companionName = names.find(name => name !== playerName), companion = bots[companionName];
+    if (!companion) return;
+    const preferredSide = playerName === names[0] ? 1 : -1;
+    const companionLane = RACE_LANES.includes(playerLane + preferredSide)
+      ? playerLane + preferredSide
+      : playerLane - preferredSide;
+    companion.distance = distance;
+    companion.speed = speed;
+    companion.lane = companion.laneTarget = companion.routeBias = companionLane;
+    companion.routeChoice = playerRouteChoice;
+    companion.finishedAt = playerFinishedAt;
+    return;
+  }
+
+  const tero = bots[names[0]], juho = bots[names[1]];
+  juho.distance = tero.distance;
+  juho.speed = tero.speed;
+  tero.lane = tero.laneTarget = tero.routeBias = -.5;
+  juho.lane = juho.laneTarget = juho.routeBias = .5;
+  juho.routeChoice = tero.routeChoice;
+  juho.finishedAt = tero.finishedAt;
 }
 function updateBotRacers(dt, s) {
-  if (raceType === 'double' && raceElapsed < SINGLE_START_DELAY) return;
   for (const bot of botRacers) {
+    if (raceElapsed < bot.startAt) {
+      bot.speed = 0;
+      continue;
+    }
     if (bot.finishedAt !== null) continue;
 
     const r = bot.rower,
@@ -428,7 +610,12 @@ function updateBotRacers(dt, s) {
     const speedFactor =
       .72 + .28 * r.speed / 99;
 
-    const maxSpeed = maxRowerSpeed(r);
+    const doubleFactor = bot.raceType === 'church'
+      ? CHURCH_SPEED_FACTOR
+      : ['double', 'alternating'].includes(bot.raceType)
+        ? (DOUBLE_SPEED_FACTORS[r.voiceGender] || DOUBLE_SPEED_FACTORS.mixed)
+        : 1;
+    const maxSpeed = Math.min(maxRowerSpeed(r) * doubleFactor, tourSpeedLimit(r));
     const botPower = botPowerPlan(bot, s);
     const usablePower = effectiveBotPower(bot, botPower);
 
@@ -445,17 +632,18 @@ function updateBotRacers(dt, s) {
       tacticFactor(day, bot.distance) *
       (s.wind ? 1 / day.windStrain : 1);
 
-    if (ferryBlocksRacer(bot.distance)) target = 0;
+    if (ferryBlocksRacer(bot.distance)) {
+      target *= ferrySpeedFactor(bot.distance);
+      bot.laneTarget = ferryAvoidanceLane();
+    }
 
     const racers = [
       {player: true, distance, speed},
       ...botRacers
     ];
-    const ahead = racers
-      .filter(racer => racer !== bot && racer.distance > bot.distance && racer.distance - bot.distance < 52 && Math.abs(trafficLane(racer) - bot.lane) < .7)
-      .sort((a, b) => a.distance - b.distance)[0];
+    const ahead = bot.distance >= TRAFFIC_ACTIVE_DISTANCE ? racerAheadInLane(bot, racers) : null;
     if (ahead && target > ahead.speed + .12) {
-      const lane = openLaneFor(bot, racers);
+      const lane = openLaneFor(bot, racers, ahead.speed <= .15);
       if (lane !== undefined) bot.laneTarget = lane;
       else target = Math.min(target, ahead.speed * .98);
     } else if (Math.abs(bot.laneTarget - bot.routeBias) > .1) {
@@ -466,23 +654,27 @@ function updateBotRacers(dt, s) {
     // not compress the whole movement into a single frame. Ease into the new
     // line instead of stepping sideways at a constant, simulation-scaled rate.
     const laneDt = previewMode && previewPlaybackRate > 0 ? dt / previewPlaybackRate : dt;
-    bot.lane += (bot.laneTarget - bot.lane) * (1 - Math.exp(-1.8 * laneDt));
+    bot.lane = moveLaneToward(bot.lane, bot.laneTarget, laneDt);
 
     const effort =
       clamp((bot.speed - 7.2) / 4.6);
 
+    // Make the starting signal visible on the map immediately. The normal
+    // eight-second easing made large church boats look stationary at the most
+    // dramatic moment of the race, even though their simulation had started.
+    const accelerationSeconds = bot.distance < 60 ? BOT_LAUNCH_ACCELERATION_SECONDS : 8;
     bot.speed +=
-      (target - bot.speed) / 8 * dt;
+      (target - bot.speed) / accelerationSeconds * dt;
 
     bot.speed =
       clamp(bot.speed, 0, maxSpeed);
 
     const botPreviousDistance = bot.distance;
-    bot.distance = ferryLimitedDistance(
+    const proposedDistance = ferryLimitedDistance(
       botPreviousDistance,
       botPreviousDistance + bot.speed / 3.6 * dt
     );
-    if (bot.distance === KIETAVALA_FERRY_STOP_DISTANCE && botPreviousDistance < bot.distance) bot.speed = 0;
+    bot.distance = trafficLimitedDistance(bot, proposedDistance, racers);
 
     if (previewMode) {
       bot.wPrime = bot.freshness = bot.energy = bot.hydration = 100;
@@ -498,6 +690,8 @@ function updateBotRacers(dt, s) {
       bot.finishedAt = raceElapsed;
     }
   }
+  updateEsaAriTactic();
+  syncTourCanoePair();
 }
 
 function start() {
@@ -506,7 +700,7 @@ function start() {
     boatSelect.value === '' ||
     materialSelect.value === ''
     || provisionPackSelect.value === '' ||
-    (raceType === 'double' && (!partnerRower || partnerRower === rower))
+    (!['single', 'church', 'canoe'].includes(raceType) && (!partnerRower || partnerRower === rower))
   ) {
     return;
   }
@@ -526,6 +720,7 @@ function start() {
   playerRouteChoice = randomPlayerRouteChoice();
   selectCrew();
   prepareRaceDay();
+  simulateDoubleHeadStart();
 
   rowerChatter.arm(rower.name, true);
 
@@ -567,6 +762,7 @@ function startPreview() {
   raceDay = previewRaceDay(raceDay);
   for (const bot of botRacers) bot.day = previewRaceDay(bot.day);
   stabilizePreviewBodies();
+  simulateDoubleHeadStart();
   rowerChatter.arm(rower.name, true);
   previewMode = true;
   previewPaused = false;
@@ -585,7 +781,7 @@ function startPreview() {
   phaseStart = startTime;
   last = startTime;
   previewLastStroke = startTime;
-  strokeTimes = [startTime - TARGET_CYCLE * 1000, startTime];
+  strokeTimes = [startTime - targetStrokeCycle() * 1000, startTime];
   quality = .92;
   ui.feedback.textContent = 'ESIKATSELU · 180×';
   ui.feedbackDetail.textContent = 'Kilpailu etenee automaattisesti eikä tallenna suoritusta.';
@@ -620,7 +816,7 @@ function resumePausedRace() {
   rowingAudio.unlock();
   const now = performance.now();
   last = now;
-  phaseStart = now - TARGET_RECOVERY * 1000;
+  phaseStart = now - targetStrokeRecovery() * 1000;
   rowerChatter.arm(rower.name);
   running = true;
   document.getElementById('pauseOverlay').classList.add('hidden');
@@ -662,7 +858,7 @@ function showFinishReport(sec, place, newRouteRecord = false) {
     secondHalfTime = Math.max(1, sec - firstHalfTime),
     firstHalfSpeed = 3.6 * (TOTAL / 2) / firstHalfTime,
     secondHalfSpeed = 3.6 * (TOTAL / 2) / secondHalfTime,
-    winnerTime = Math.min(sec, ...botRacers.filter(bot => bot.finishedAt !== null).map(bot => bot.finishedAt)),
+    winnerTime = Math.min(sec, ...botRacers.filter(bot => bot.raceType === raceType && bot.finishedAt !== null).map(bot => bot.finishedAt - Math.max(0, bot.startAt))),
     gap = sec - winnerTime;
   let portions = 0,
     consumedCarbs = 0,
@@ -686,9 +882,11 @@ function showFinishReport(sec, place, newRouteRecord = false) {
   if (blisters >= 30) observations.push('Käsien rakot haittasivat soutua selvästi.');
   if (observations.length === 1 && freshness >= 35 && energy >= 35 && hydration >= 85) observations.push('Voimavarat pysyivät hyvin hallinnassa maaliin asti.');
 
-  document.getElementById('finishSummary').textContent = `${crewName()} maalissa Sulkavan soutustadionilla.`;
+  document.getElementById('finishSummary').textContent = raceUsesReverseRoute()
+    ? `${crewName()} maalissa Hakovirran sillan alituksen jälkeen.`
+    : `${crewName()} maalissa Sulkavan soutustadionilla.`;
   document.getElementById('finishStats').innerHTML = `
-    <div><span>Sijoitus</span><b>${place}/${raceType === 'double' ? 1 : rowers.length}</b></div>
+    <div><span>Sijoitus</span><b>${place}/${botRacers.filter(bot => bot.raceType === raceType).length + 1}</b></div>
     <div><span>Ero voittajaan</span><b>${gap > .5 ? `+${formatTime(gap)}` : '—'}</b></div>
     <div><span>Keskinopeus</span><b>${averageSpeed.toFixed(1).replace('.', ',')} km/h</b></div>
     <div><span>Huippunopeus</span><b>${raceStats.maxSpeed.toFixed(1).replace('.', ',')} km/h</b></div>
@@ -753,6 +951,7 @@ function update(dt, now) {
   if (previewMode) stabilizePreviewBodies();
   else if (playerRacing) updateBody(dt, s, raceSec, active);
   updateBotRacers(dt, s);
+  updatePlayerLane(dt);
 
   if (!previewMode && playerRacing && hydration <= 25 && cramps >= 70) {
     withdrawRace('Nestehukka ja kramppirasitus ovat terveydelle liian vaarallisia. Älä jatka suoritusta ilman ammattilaisen arviota.', true);
@@ -825,7 +1024,7 @@ function update(dt, now) {
       maxRowerSpeed()
     );
 
-  const ferryAdjustedDesired = ferryBlocksRacer(distance) ? 0 : desired;
+  const ferryAdjustedDesired = desired * ferrySpeedFactor(distance);
 
   /*
    * Reagoi vetotahdin muutoksiin hieman aiempaa nopeammin.
@@ -858,12 +1057,14 @@ function update(dt, now) {
 
   if (playerRacing) {
     const previousDistance = distance;
-    distance = ferryLimitedDistance(previousDistance, previousDistance + speed / 3.6 * dt);
-    if (distance === KIETAVALA_FERRY_STOP_DISTANCE && previousDistance < distance) speed = 0;
+    const proposedDistance = ferryLimitedDistance(previousDistance, previousDistance + speed / 3.6 * dt),
+      playerTraffic = {player: true, distance: previousDistance, speed};
+    distance = trafficLimitedDistance(playerTraffic, proposedDistance, [playerTraffic, ...botRacers]);
     if (raceStats.halfwayAt === null && previousDistance < TOTAL / 2 && distance >= TOTAL / 2) {
       raceStats.halfwayAt = raceElapsed;
     }
   }
+  syncTourCanoePair();
 
   if (playerRacing) rowerChatter.tick(dt, {
     time: raceSec,
@@ -895,8 +1096,7 @@ function update(dt, now) {
     } else {
       const sec = raceElapsed;
 
-      const place = raceType === 'double' ? 1 :
-        1 + botRacers.filter(bot => bot.finishedAt !== null && bot.finishedAt <= sec).length;
+      const place = 1 + botRacers.filter(bot => bot.raceType === raceType && bot.finishedAt !== null && bot.finishedAt - Math.max(0, bot.startAt) <= sec).length;
 
       rowerChatter.announceFinish(
         crewName(),

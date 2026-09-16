@@ -18,6 +18,7 @@ let running = false,
   last = performance.now(),
   startTime = 0,
   phaseStart = 0,
+  strokeTrackWidth = 1,
   speed = 0,
   distance = 0,
   strokeTimes = [],
@@ -60,12 +61,18 @@ let intakeUntil = 0,
 let selectedProvisionPack = '',
   inventory = initialInventory(selectedProvisionPack);
 let raceType = 'single',
-  partnerRower = null;
+  partnerRower = null,
+  churchStart = 'saturday',
+  singleStart = 'saturday',
+  alternatingStart = 'saturday',
+  doubleStart = 'saturday';
 let rower = rowers.find(r => r.name === DEFAULT_CREW.rower),
   selectedBoat = boats.find(b => b.name === DEFAULT_CREW.boat),
   material = DEFAULT_CREW.material;
 let botRacers = [];
-let playerRouteChoice = 'primary';
+let playerRouteChoice = 'primary',
+  playerLane = 0,
+  playerLaneTarget = 0;
 let raceDay = null;
 let recordEligible = false;
 function newRaceStats() {

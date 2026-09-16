@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Sulkavan Suursoutu</title>
-  <link rel="stylesheet" href="styles.css?v=9">
+    <link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body>
   <audio id="menuMusic" preload="auto" loop>
@@ -57,11 +57,43 @@
           <div class="race-type" role="group" aria-label="Valitse kilpailusarja">
             <button id="singleRace" type="button">Yksinsoutu</button>
             <button id="doubleRace" type="button">Parisoutu</button>
+            <button id="alternatingRace" type="button">Vuorosoutu</button>
+            <button id="churchRace" type="button">Kirkkovene</button>
+            <button id="canoeRace" type="button" hidden disabled>Kanootti</button>
           </div>
-          <p id="raceTypeInfo" class="race-type-info">Yksinsoutu lähtee 20 minuuttia parisoudun jälkeen.</p>
+          <p id="raceTypeInfo" class="race-type-info">Yksinsoutajat lähtevät 10 minuuttia vuorosoutajien jälkeen.</p>
+          <section id="singleStartField" class="selection-group selection-step church-start" data-selection-step="single-start" hidden>
+            <span>Valitse yksinsoudun lähtö</span>
+            <div role="group" aria-label="Valitse yksinsoudun lähtö">
+              <button id="singleThursdayTour" type="button">Retkisoutu<br>torstai</button>
+              <button id="singleSaturday" type="button">SM-lähtö<br>lauantai</button>
+            </div>
+          </section>
+          <section id="alternatingStartField" class="selection-group selection-step church-start" data-selection-step="alternating-start" hidden>
+            <span>Valitse vuorosoudun lähtö</span>
+            <div role="group" aria-label="Valitse vuorosoudun lähtö">
+              <button id="alternatingThursdayTour" type="button">Retkisoutu<br>torstai</button>
+              <button id="alternatingSaturday" type="button">SM-lähtö<br>lauantai</button>
+            </div>
+          </section>
+          <section id="doubleStartField" class="selection-group selection-step church-start" data-selection-step="double-start" hidden>
+            <span>Valitse parisoudun lähtö</span>
+            <div role="group" aria-label="Valitse parisoudun lähtö">
+              <button id="doubleThursdayTour" type="button">Retkisoutu<br>torstai</button>
+              <button id="doubleSaturday" type="button">SM-lähtö<br>lauantai</button>
+            </div>
+          </section>
           <p id="selectionProgress" class="selection-progress">VAIHE 1 / 3</p>
           <h2 id="selectionTitle">Valitse soutaja</h2>
           <div class="selection-grid">
+            <section id="churchStartField" class="selection-group selection-step church-start" data-selection-step="church" hidden>
+              <span>Valitse kirkkoveneiden lähtö</span>
+              <div role="group" aria-label="Valitse kirkkoveneiden lähtö">
+                <button id="churchThursdayTour" type="button">Retkisoutu<br>torstai</button>
+                <button id="churchFridayNight" type="button">Yösoutu<br>perjantai</button>
+                <button id="churchSaturday" type="button">SM-lähtö<br>lauantai</button>
+              </div>
+            </section>
             <section class="selection-group selection-step" data-selection-step="1">
               <div class="rower-gender" role="group" aria-label="Valitse soutajien ryhmä">
                 <button id="maleRowers" class="rower-gender-option male" type="button">Miehet</button>
@@ -72,7 +104,7 @@
               <label id="partnerRowerField" hidden aria-hidden="true">Pari<select id="partnerRowerSelect" tabindex="-1"></select></label>
               <div id="rowerProfile" class="rower-profile"><div class="crew-portraits"><img id="rowerPortrait" src="heikki-karjaluoto.png" alt="" width="104" height="104" hidden draggable="false"><img id="partnerRowerPortrait" alt="" width="104" height="104" hidden draggable="false"></div><div><strong id="portraitName"></strong></div></div>
               <div id="rowerStats" class="stat-grid"></div>
-              <button id="rowerNext" class="selection-next" type="button">Valitse soutajaksi</button>
+              <div class="selection-actions"><button id="churchStartBack" class="text-button" type="button" hidden>Takaisin lähtöihin</button><button id="rowerNext" class="selection-next" type="button">Valitse soutajaksi</button></div>
             </section>
             <section class="selection-group selection-step" data-selection-step="2" hidden>
               <label>Venemalli<select id="boatSelect"></select></label>
@@ -90,7 +122,7 @@
           <small>Arvot ja veneiden erot ovat pelihahmojen kuvitteellisia ominaisuuksia. Kramppiherkkyydessä pienempi on parempi. Hahmojen repliikit ovat pelin huumoria.</small>
           <button id="changeSaveSlot" class="text-button" type="button">Vaihda tallennuspaikkaa</button>
         </div>
-        <p id="startInstructions" hidden>Lähtö Hakovirran sillalta. Paina karttaa tai <kbd>välilyönti</kbd> pohjaan kiinniotossa.<br>Vedä vihreälle alueelle, vapauta ja anna veneen liukua takaisin kiinniottoon.</p>
+        <p id="startInstructions" hidden><span id="startLocation">Lähtö Hakovirran sillalta.</span> Paina karttaa tai <kbd>välilyönti</kbd> pohjaan kiinniotossa.<br>Vedä vihreälle alueelle, vapauta ja anna veneen liukua takaisin kiinniottoon.</p>
         <p id="saveStatus" role="status" hidden>Soutu tallentuu automaattisesti tähän selaimeen.</p><button id="startButton" hidden>Lähde Hakovirralta</button>
       </div>
       <div id="pauseOverlay" class="overlay hidden"><h2>Soutu tauolla</h2><p>Aika ja voimavarat pysyvät paikallaan.</p><p id="pauseStatus" role="status"></p><button id="continueButton" type="button">Jatka soutua</button><button id="withdrawButton" type="button">Keskeytä · pyydä valvontavene</button><button id="crewMenuButton" type="button">Aloitusvalikko</button></div>
@@ -148,27 +180,27 @@
     </section>
   </main>
   <script src="data/config.js"></script>
-  <script src="data/rowers.js?v=2"></script>
-  <script src="data/boats.js"></script>
+  <script src="data/rowers.js?v=15"></script>
+  <script src="data/boats.js?v=4"></script>
   <script src="data/foods.js"></script>
-  <script src="data/portraits.js?v=2"></script>
-  <script src="data/route.js?v=7"></script>
+  <script src="data/portraits.js?v=7"></script>
+  <script src="data/route.js?v=8"></script>
   <script src="data/dialogue.js"></script>
-  <script src="js/state.js?v=6"></script>
+  <script src="js/state.js?v=9"></script>
   <script src="js/ui/hud.js"></script>
-  <script src="js/ui/selection.js?v=2"></script>
+  <script src="js/ui/selection.js?v=15"></script>
   <script src="js/ui/provisions.js"></script>
   <script src="js/audio/effects.js"></script>
   <script src="js/audio/chatter.js"></script>
-  <script src="js/mechanics.js"></script>
+  <script src="js/mechanics.js?v=8"></script>
   <script src="js/input.js"></script>
   <script src="js/map/route.js"></script>
-  <script src="js/map/render.js?v=31"></script>
-  <script src="js/map/route-editor.js?v=25"></script>
-  <script src="js/map/characters.js?v=2"></script>
-  <script src="js/map/bridge.js?v=34"></script>
-  <script src="js/storage.js?v=7"></script>
-  <script src="js/race.js?v=8"></script>
-  <script src="js/main.js?v=9"></script>
+  <script src="js/map/render.js?v=44"></script>
+  <script src="js/map/route-editor.js?v=29"></script>
+  <script src="js/map/characters.js?v=10"></script>
+  <script src="js/map/bridge.js?v=36"></script>
+  <script src="js/storage.js?v=21"></script>
+  <script src="js/race.js?v=25"></script>
+  <script src="js/main.js?v=21"></script>
 </body>
 </html>

@@ -9,6 +9,7 @@ const routeEditorPointSets = {
   extras: SHORE_EXTRAS.map(([type, x, y, facing]) => [type, x * 805, y * 851, facing]),
   trees: SHORE_TREES.map(([species, x, y, size]) => [species, x * 805, y * 851, size]),
   linnavuori: LINNAVUORI_SHAPE.map(point => point.slice()),
+  starts: (START_GRID_POINTS.length ? START_GRID_POINTS : START_GRID_POSITIONS).map(([x, y]) => [x * 805, y * 851]),
   route: []
 };
 let routeEditorPoints = routeEditorPointSets.cabins,
@@ -121,7 +122,7 @@ function routeEditorHitTest(point) {
   const scale = routeEditorViewport(canvas.clientWidth, canvas.clientHeight).w / 805,
     radius = 12 / scale;
   let hit = null, nearestDistance = radius;
-  for (const mode of ['cabins', 'people', 'extras', 'trees']) {
+  for (const mode of ['cabins', 'people', 'extras', 'trees', 'starts']) {
     routeEditorPointSets[mode].forEach((item, index) => {
       const candidate = mode === 'extras' || mode === 'trees' ? item.slice(1) : item,
         distance = Math.hypot(point[0] - candidate[0], point[1] - candidate[1]);
@@ -162,6 +163,31 @@ function routeEditorSegmentIsWater(start, end) {
   return true;
 }
 
+function routeEditorStartPointIsWater(x, y) {
+  if (!waterPixels) return true;
+  const angle = pointOnRoute(-70 / TOTAL, 805, 851).angle,
+    alongX = Math.cos(angle), alongY = Math.sin(angle),
+    acrossX = -alongY, acrossY = alongX;
+  let waterSamples = 0, sampleCount = 0;
+  // Approximate the long, narrow hull instead of demanding that an unrelated
+  // square around it is perfect water. A majority per cross-section ignores
+  // isolated map ink but still rejects a bow, middle or stern on the shore.
+  for (let along = -4; along <= 4; along += 2) {
+    let sectionWater = 0;
+    for (let across = -1; across <= 1; across++) {
+      const sampleX = Math.round(x + alongX * along + acrossX * across),
+        sampleY = Math.round(y + alongY * along + acrossY * across),
+        isWater = sampleX >= 0 && sampleX < 805 && sampleY >= 0 && sampleY < 851 &&
+          waterPixels[sampleY * 805 + sampleX];
+      sectionWater += isWater ? 1 : 0;
+      waterSamples += isWater ? 1 : 0;
+      sampleCount++;
+    }
+    if (sectionWater < 2) return false;
+  }
+  return waterSamples / sampleCount >= .8;
+}
+
 function routeEditorSimplify(points, tolerance = 3) {
   if (points.length < 3) return points.slice();
   let furthest = 0, index = 0;
@@ -178,6 +204,16 @@ function routeEditorSimplify(points, tolerance = 3) {
 
 function routeEditorUpdateOutput() {
   if (!routeEditorOutput) return;
+  if (routeEditorMode === 'starts') {
+    routeEditorOutput.value = routeEditorPoints.map(([x, y]) =>
+      `[${(x / 805).toFixed(4)}, ${(y / 851).toFixed(4)}]`
+    ).join(',\n');
+    const invalidPoints = routeEditorPoints.filter(([x, y]) => !routeEditorStartPointIsWater(x, y)).length;
+    routeEditorStatus.textContent = routeEditorPoints.length
+      ? `${routeEditorPoints.length} lähtöpaikkaa · ${invalidPoints ? `${invalidPoints} liian lähellä rantaa` : 'kaikki turvallisesti vedessä'} · piste 1 on pelaaja`
+      : 'Merkitse lähtöpaikat järjestyksessä. Piste 1 on pelaaja.';
+    return;
+  }
   if (routeEditorMode === 'linnavuori') {
     routeEditorOutput.value = routeEditorPoints.map(([x, y]) => `[${x.toFixed(2)}, ${y.toFixed(2)}]`).join(',\n');
     routeEditorStatus.textContent = routeEditorPoints.length >= 3
@@ -238,7 +274,7 @@ function drawRouteEditorOverlay(m) {
   const mapScale = m.w / 805,
     decorationScale = clamp(mapScale, .55, 1.15),
     cabinSize = 9 * decorationScale,
-    spectatorSize = .38 * mapScale;
+    spectatorSize = shoreSpectatorSize(mapScale);
 
   const linnavuoriScale = decorationScale * 7.5;
   drawLinnavuori(
@@ -265,12 +301,33 @@ function drawRouteEditorOverlay(m) {
     const [x, y, variant, sizeFactor] = routeEditorPointSets.cabins[i];
     drawShoreCabin(c, m.x + x / 805 * m.w, m.y + y / 851 * m.h, cabinSize * sizeFactor, SHORE_CABIN_COLORS[i % SHORE_CABIN_COLORS.length], variant);
   }
+
+  // Draw the bridge before editable people so spectators placed on its deck
+  // remain visible and can be selected again.
+  drawStartBridge(m, canvas.clientWidth, canvas.clientHeight, performance.now());
   for (let i = 0; i < routeEditorPointSets.people.length; i++) {
     const [x, y] = routeEditorPointSets.people[i];
     drawShoreSpectator(c, m.x + x / 805 * m.w, m.y + y / 851 * m.h, spectatorSize, '#f8d848', performance.now(), i);
   }
   for (const [type, x, y, facing] of routeEditorPointSets.extras) {
     drawMapExtra(c, type, m.x + x / 805 * m.w, m.y + y / 851 * m.h, decorationScale, performance.now(), facing);
+  }
+
+  for (let index = 0; index < routeEditorPointSets.starts.length; index++) {
+    const [x, y] = routeEditorPointSets.starts[index],
+      screenX = m.x + x / 805 * m.w,
+      screenY = m.y + y / 851 * m.h,
+      valid = routeEditorStartPointIsWater(x, y);
+    c.fillStyle = valid ? index ? '#52e080' : '#ffe040' : '#ff3048';
+    c.strokeStyle = '#101830';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.arc(screenX, screenY, 9, 0, Math.PI * 2);
+    c.fill(); c.stroke();
+    c.fillStyle = '#101830';
+    c.font = '700 10px "Courier New",monospace';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(index ? String(index + 1) : 'P', screenX, screenY + .5);
   }
 
   if (routeEditorMode === 'route') {
@@ -329,6 +386,10 @@ if (routeEditorEnabled) {
     <button type="button" data-action="save">Tallenna peliin</button>
     <output aria-live="polite"></output>`;
   panel.style.cssText = 'box-sizing:border-box;position:absolute;z-index:5;top:12px;right:12px;width:min(360px,calc(100% - 24px));max-height:calc(100vh - 24px);overflow:auto;display:grid;gap:8px;padding:12px;background:rgba(16,24,48,.94);border:2px solid #ffe56b;box-shadow:3px 3px #080f20;color:#fff8d8;font:12px "Courier New",monospace;overflow-wrap:anywhere';
+  panel.querySelector('[data-extra-picker]').insertAdjacentHTML(
+    'beforebegin',
+    '<button type="button" data-mode="starts" aria-pressed="false">L&auml;ht&ouml;paikat</button>'
+  );
   lakeWrap.append(panel);
   routeEditorOutput = panel.querySelector('textarea');
   routeEditorStatus = panel.querySelector('output');
@@ -393,9 +454,11 @@ if (routeEditorEnabled) {
       piers: routeEditorPointSets.piers.map(([start, end]) => [[start[0] / 805, start[1] / 851], [end[0] / 805, end[1] / 851]]),
       extras: routeEditorPointSets.extras.map(([type, x, y, facing]) => facing ? [type, x / 805, y / 851, facing] : [type, x / 805, y / 851]),
       trees: routeEditorPointSets.trees.map(([species, x, y, size]) => [species, x / 805, y / 851, size]),
-      linnavuoriShape: routeEditorPointSets.linnavuori.map(point => point.slice())
+      linnavuoriShape: routeEditorPointSets.linnavuori.map(point => point.slice()),
+      startGrid: routeEditorPointSets.starts.map(([x, y]) => [x / 805, y / 851])
     };
     localStorage.setItem(MAP_DECORATIONS_KEY, JSON.stringify(decorations));
+    applyMapDecorations(decorations);
     routeEditorStatus.textContent = 'Mökit, ihmiset, laiturit, puut ja muut elementit tallennettu peliin.';
   };
   panel.querySelector('[data-action="clearance"]').onchange = event => {

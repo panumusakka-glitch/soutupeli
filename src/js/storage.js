@@ -6,13 +6,17 @@ const defaultRouteRecords = {
   female: {name: 'Hanna Tuominen', seconds: 6 * 3600 + 60 + 11, year: 2009},
   'double-male': {name: 'Jyrki Kiviniemi & Jani Söderlund', seconds: 4 * 3600 + 42 * 60 + 50, year: 2016},
   'double-female': {name: 'Tanja Jantunen & Kaisa Saarimaa', seconds: 5 * 3600 + 23 * 60 + 8, year: 2022},
-  'double-mixed': {name: 'Elisa Aunola & Seppo Rellman', seconds: 5 * 3600 + 2 * 60 + 30, year: 2016}
+  'double-mixed': {name: 'Elisa Aunola & Seppo Rellman', seconds: 5 * 3600 + 2 * 60 + 30, year: 2016},
+  'alternating-male': {name: 'Timo Mikkonen & Juhani Auvinen', seconds: 4 * 3600 + 42 * 60 + 50, year: 2016}
+  , 'church-saturday': {name: 'Kahvakopla', seconds: 3 * 3600 + 51 * 60 + 20, year: 2004}
+  , 'church-thursday': {name: 'Kahvakopla', seconds: 3 * 3600 + 51 * 60 + 20, year: 2004}
+  , 'church-night': {name: 'Metso Paper Suvituuli', seconds: 3 * 3600 + 58 * 60 + 42, year: 2007}
 };
 const renamedRowers = {'Joey Power': 'Joel Naukkarinen', 'Kankku King': 'Ari Kankkunen', 'Heikki Fjord': 'Heikki Karjaluoto', 'Sauli Niinistö': 'Sale Steel', 'Einari Luukkonen': 'Einari "Leppäsuaren Einar" Luukkonen', 'Juho-Kalle Björn': 'Juho Karhu', 'Lassi Toropainen': 'El Toro'};
 let activeSaveSlot = 1,
   pausedSaveSlot = null;
 function routeRecord(gender, type = 'single') {
-  const key = type === 'double' ? `double-${gender}` : gender;
+  const key = type === 'single' ? gender : type === 'church' ? `church-${churchStart}` : `${type}-${gender}`;
   const fallback = defaultRouteRecords[key];
   try {
     const saved = JSON.parse(localStorage.getItem(ROUTE_RECORD_KEY));
@@ -27,12 +31,12 @@ function routeRecord(gender, type = 'single') {
 function routeRecordLabel(gender, type = 'single') {
   const record = routeRecord(gender, type);
   const doubleTitle = gender === 'female' ? 'Naisten parisoudun reittiennätys' : gender === 'mixed' ? 'Sekaparisoudun reittiennätys' : 'Miesten parisoudun reittiennätys';
-  const title = type === 'double' ? doubleTitle : gender === 'female' ? 'Naisten reittiennätys' : 'Reittiennätys';
+  const title = type === 'church' ? 'Kirkkoveneiden reittiennätys' : type === 'alternating' ? 'Vuorosoudun reittiennätys' : type === 'double' ? doubleTitle : gender === 'female' ? 'Naisten reittiennätys' : 'Reittiennätys';
   const time = formatTime(record.seconds).replaceAll(':', '.');
   return `${title}: ${record.name} – ${time}${record.year ? ` (${record.year})` : ''}`;
 }
 function updateRouteRecord(gender, name, seconds, type = 'single') {
-  const key = type === 'double' ? `double-${gender}` : gender;
+  const key = type === 'single' ? gender : type === 'church' ? `church-${churchStart}` : `${type}-${gender}`;
   const current = routeRecord(gender, type);
   if (seconds >= current.seconds) return false;
   try {
@@ -47,7 +51,7 @@ function updateRouteRecord(gender, name, seconds, type = 'single') {
 const stateRanges = {
   elapsed: [0, 1e8],
   distance: [0, TOTAL - .00001],
-  speed: [0, Math.max(...rowers.map(r => maxRowerSpeed(r))) * Math.max(...Object.values(DOUBLE_SPEED_FACTORS))],
+  speed: [0, Math.max(...rowers.map(r => maxRowerSpeed(r))) * Math.max(CHURCH_SPEED_FACTOR, ...Object.values(DOUBLE_SPEED_FACTORS))],
   quality: [0, 1],
   carbs: [0, 420],
   bloodCarbs: [0, 60],
@@ -77,11 +81,23 @@ function migrateRaceDay(day) {
   return day;
 }
 function validRace(s) {
-  if (!s || s.version !== 1 || !rowers.some(r => r.name === s.rower) || !boats.some(b => b.name === s.boat) || !Object.hasOwn(materials, s.material)) return false;
+  if (!s || s.version !== 1 || !rowers.some(r => r.name === s.rower && !r.hidden) || !boats.some(b => b.name === s.boat) || !Object.hasOwn(materials, s.material)) return false;
+  const savedRower = rowers.find(r => r.name === s.rower), savedBoat = boats.find(b => b.name === s.boat);
   if (!Object.hasOwn(provisionPacks, s.provisionPack)) return false;
-  if (!['single', 'double'].includes(s.raceType)) return false;
-  if (s.raceType === 'double' && !isDoubleCrew(s.rower, s.partnerRower)) return false;
-  if (s.raceType === 'double' && s.partnerRower === 'Seppo Räty' && s.provisionPack !== 'fun') return false;
+  if (!['single', 'double', 'alternating', 'church', 'canoe'].includes(s.raceType)) return false;
+  if (s.raceType === 'canoe' && !canoeRowers.some(candidate => candidate.name === s.rower)) return false;
+  if (s.raceType === 'single' && !['thursday', 'saturday'].includes(s.singleStart)) return false;
+  if (s.raceType === 'single' && !singleRowersForStart(s.singleStart).some(candidate => candidate.name === s.rower)) return false;
+  if (s.raceType === 'alternating' && !['thursday', 'saturday'].includes(s.alternatingStart)) return false;
+  if (s.raceType === 'double' && !['thursday', 'saturday'].includes(s.doubleStart)) return false;
+  if (s.raceType === 'church' && !['thursday', 'saturday', 'night'].includes(s.churchStart)) return false;
+  if (s.raceType === 'church' && !rowers.some(r => r.name === s.rower && r.churchOnly)) return false;
+  if (s.raceType === 'church' && !churchCrewsForStart(s.churchStart).some(crew => crew.name === s.rower)) return false;
+  if ((s.raceType === 'church') !== !!savedBoat.churchOnly) return false;
+  const kayakRequired = s.raceType === 'canoe' || s.raceType === 'single' && s.singleStart === 'thursday' && !!savedRower.canoeOnly;
+  if (kayakRequired !== !!savedBoat.canoeOnly) return false;
+  if (!['single', 'church', 'canoe'].includes(s.raceType) && !isCrewForRaceType(s.rower, s.partnerRower, s.raceType, s.raceType === 'double' ? s.doubleStart : s.alternatingStart)) return false;
+  if (s.raceType !== 'single' && s.partnerRower === 'Seppo Räty' && s.provisionPack !== 'fun') return false;
   if (s.rower === 'Seppo Räty' && s.provisionPack !== 'fun') return false;
   if (boats.find(b => b.name === s.boat).spruceOnly && s.material !== 'spruce') return false;
   if (!Object.entries(stateRanges).every(([k, [lo, hi]]) => Number.isFinite(s[k]) && s[k] >= lo && s[k] <= hi)) return false;
@@ -92,6 +108,10 @@ function loadRace(slot = activeSaveSlot) {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_SLOTS[slot - 1]));
     if (s && !Object.hasOwn(s, 'raceType')) s.raceType = 'single';
+    if (s && !Object.hasOwn(s, 'singleStart')) s.singleStart = 'saturday';
+    if (s && !Object.hasOwn(s, 'alternatingStart')) s.alternatingStart = 'saturday';
+    if (s && !Object.hasOwn(s, 'doubleStart')) s.doubleStart = 'saturday';
+    if (s && !Object.hasOwn(s, 'churchStart')) s.churchStart = 'saturday';
     if (s && !Object.hasOwn(s, 'provisionPack')) s.provisionPack = 'legacy';
     if (s?.inventory) for (const key of Object.keys(foods)) if (!Number.isInteger(s.inventory[key])) s.inventory[key] = 0;
     if (s?.rower === 'Seppo Räty' && s.provisionPack !== 'fun') {
@@ -135,6 +155,10 @@ function snapshot() {
   return {
     version: 1,
     raceType,
+    singleStart,
+    alternatingStart,
+    doubleStart,
+    churchStart,
     rower: rower.name,
     partnerRower: partnerRower?.name || null,
     boat: selectedBoat.name,
@@ -148,6 +172,8 @@ function snapshot() {
     raceDay,
     raceStats: {...raceStats},
     routeChoice: playerRouteChoice,
+    playerLane,
+    playerLaneTarget,
     carbs,
     bloodCarbs,
     gutCarbs,
@@ -177,6 +203,9 @@ function snapshot() {
     },
     bots: botRacers.map(bot => ({
       rower: bot.rower.name,
+      raceType: bot.raceType,
+      crew: bot.crew,
+      startAt: bot.startAt,
       distance: bot.distance,
       speed: bot.speed,
       lane: bot.lane,
@@ -254,8 +283,10 @@ function showSaveSlots(mode) {
   document.getElementById('resumeSummary').textContent = mode === 'continue' ? 'Valitse tallennus, jota haluat jatkaa.' : 'Uusi soutu tallennetaan valitsemaasi paikkaan.';
   document.getElementById('saveSlots').innerHTML = saves.map((save, index) => {
     const slot = index + 1;
-    const savedCrew = save?.raceType === 'double' ? `${save.rower} & ${save.partnerRower}` : save?.rower;
-    const details = save ? `${savedCrew} · ${save.raceType === 'double' ? 'Parisoutu' : 'Yksinsoutu'} · ${(save.distance / 1000).toFixed(1).replace('.', ',')} km · ${formatTime(save.elapsed)}` : 'Tyhjä';
+    const savedCrew = save && !['single', 'church'].includes(save.raceType) ? `${save.rower} & ${save.partnerRower}` : save?.rower;
+    const churchStartName = save?.churchStart === 'thursday' ? 'torstain retkisoutu' : save?.churchStart === 'night' ? 'yösoutu klo 21' : 'lauantain SM-lähtö';
+    const seriesName = save?.raceType === 'canoe' ? 'Kanootti · retkisoutu' : save?.raceType === 'church' ? `Kirkkovene · ${churchStartName}` : save?.raceType === 'alternating' ? `Vuorosoutu${save.alternatingStart === 'thursday' ? ' · retkisoutu' : ''}` : save?.raceType === 'double' ? `Parisoutu${save.doubleStart === 'thursday' ? ' · retkisoutu' : ''}` : save?.singleStart === 'thursday' ? 'Yksinsoutu · retkisoutu' : 'Yksinsoutu';
+    const details = save ? `${savedCrew} · ${seriesName} · ${(save.distance / 1000).toFixed(1).replace('.', ',')} km · ${formatTime(save.elapsed)}` : 'Tyhjä';
     const action = mode === 'continue' ? 'Jatka' : save ? 'Korvaa' : 'Valitse';
     return `<button class="save-slot" type="button" data-mode="${mode}" data-slot="${slot}"${mode === 'continue' && !save ? ' disabled' : ''}><b>Paikka ${slot}</b><span>${details}</span><em>${action}</em></button>`;
   }).join('');
@@ -275,11 +306,11 @@ function chooseSaveSlot(mode, slot) {
   selectCrew();
   document.getElementById('resumePanel').hidden = true;
   document.getElementById('selectionPanel').hidden = false;
-  showSelectionStep(1);
+  showSelectionStep(raceType === 'single' ? 'single-start' : 1);
   document.getElementById('startInstructions').hidden = false;
   document.getElementById('saveStatus').hidden = false;
   document.getElementById('saveStatus').textContent = `Soutu tallentuu paikkaan ${slot}.`;
-  document.getElementById('startButton').textContent = 'Lähde Hakovirralta';
+  updateRouteDirectionCopy();
 }
 function resumeRace(slot = activeSaveSlot) {
   activeSaveSlot = slot;
@@ -288,9 +319,14 @@ function resumeRace(slot = activeSaveSlot) {
   rowingAudio.unlock();
   reset();
   const savedRowerIndex = rowers.findIndex(r => r.name === s.rower);
-  selectRowerGender(rowers[savedRowerIndex]?.voiceGender, savedRowerIndex);
   const savedPartnerIndex = rowers.findIndex(r => r.name === s.partnerRower);
+  setSingleStart(s.singleStart);
+  setAlternatingStart(s.alternatingStart);
+  setDoubleStart(s.doubleStart);
+  setChurchStart(s.churchStart);
   setRaceType(s.raceType, savedPartnerIndex);
+  selectRowerGender(rowers[savedRowerIndex]?.voiceGender, savedRowerIndex);
+  if (isCrewRace()) populatePartnerRowers(savedPartnerIndex);
   boatSelect.value = String(boats.findIndex(b => b.name === s.boat));
   materialSelect.value = s.material;
   provisionPackSelect.value = s.provisionPack;
@@ -300,6 +336,8 @@ function resumeRace(slot = activeSaveSlot) {
   speed = s.speed;
   quality = s.quality;
   playerRouteChoice = s.routeChoice === 'alternative' ? 'alternative' : 'primary';
+  playerLane = Number.isFinite(s.playerLane) ? clamp(s.playerLane, -3, 3) : 0;
+  playerLaneTarget = Number.isFinite(s.playerLaneTarget) ? clamp(s.playerLaneTarget, -3, 3) : playerLane;
   strokePower = Number.isFinite(rower.racePower)
     ? rower.racePower
     : Number.isFinite(s.strokePower) ? clamp(s.strokePower, 30, 110) : 70;
@@ -337,15 +375,23 @@ function resumeRace(slot = activeSaveSlot) {
     ...s.inventory
   };
   if (Array.isArray(s.bots)) {
+    const allowedBots = new Set(botEntries().map(bot => `${bot.raceType}|${bot.crew.join('|')}`));
     botRacers = s.bots.flatMap((saved, index) => {
-      const botRower = rowers.find(r => r.name === saved.rower);
+      const savedType = ['double', 'alternating', 'church', 'canoe'].includes(saved.raceType) ? saved.raceType : 'single';
+      const savedNames = Array.isArray(saved.crew) && saved.crew.length ? saved.crew : [saved.rower];
+      if (!allowedBots.has(`${savedType}|${savedNames.join('|')}`)) return [];
+      const savedCrew = Array.isArray(saved.crew) ? crewSeries.find(crew => crew.rowers.join('|') === saved.crew.join('|')) : null;
+      const botRower = !['single', 'church', 'canoe'].includes(saved.raceType) && savedCrew ? doubleCrewRower(savedCrew) : rowers.find(r => r.name === saved.rower);
       return botRower && Number.isFinite(saved.distance) && Number.isFinite(saved.speed) && Number.isFinite(saved.wPrime) && Number.isFinite(saved.freshness) && Number.isFinite(saved.energy) ? [{
         rower: botRower,
+        raceType: ['double', 'alternating', 'church', 'canoe'].includes(saved.raceType) ? saved.raceType : 'single',
+        crew: !['single', 'church', 'canoe'].includes(saved.raceType) && savedCrew ? savedCrew.rowers.slice() : [botRower.name],
+        startAt: Number.isFinite(saved.startAt) ? saved.startAt : seriesStartOffset(saved.raceType) - seriesStartOffset(s.raceType),
         distance: clamp(saved.distance, 0, TOTAL),
-        speed: clamp(saved.speed, 0, maxRowerSpeed(botRower)),
-        lane: Number.isFinite(saved.lane) ? clamp(saved.lane, -2, 2) : initialRaceLane(index),
-        laneTarget: Number.isFinite(saved.laneTarget) ? clamp(saved.laneTarget, -2, 2) : initialRaceLane(index),
-        routeBias: Number.isFinite(saved.routeBias) ? clamp(saved.routeBias, -2, 2) : initialRaceLane(index),
+        speed: clamp(saved.speed, 0, maxRowerSpeed(botRower) * (saved.raceType === 'church' ? CHURCH_SPEED_FACTOR : saved.raceType !== 'single' ? (DOUBLE_SPEED_FACTORS[botRower.voiceGender] || DOUBLE_SPEED_FACTORS.mixed) : 1)),
+        lane: Number.isFinite(saved.lane) ? clamp(saved.lane, -3, 3) : initialRaceLane(index),
+        laneTarget: Number.isFinite(saved.laneTarget) ? clamp(saved.laneTarget, -3, 3) : initialRaceLane(index),
+        routeBias: Number.isFinite(saved.routeBias) ? clamp(saved.routeBias, -3, 3) : initialRaceLane(index),
         routeChoice: saved.routeChoice === 'alternative' ? 'alternative' : 'primary',
         wPrime: clamp(saved.wPrime, 0, 100),
         freshness: clamp(saved.freshness, 0, 100),
@@ -369,7 +415,7 @@ function resumeRace(slot = activeSaveSlot) {
   document.body.classList.remove('start-menu');
   rowingAudio.stopMenuMusic();
   last = performance.now();
-  phaseStart = last - TARGET_RECOVERY * 1000;
+  phaseStart = last - targetStrokeRecovery() * 1000;
   rowerSelect.disabled = partnerRowerSelect.disabled = boatSelect.disabled = materialSelect.disabled = provisionPackSelect.disabled = true;
   document.body.classList.add('race-mode');
   ui.start.classList.add('hidden');

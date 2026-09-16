@@ -13,6 +13,25 @@ const VEKARA_BRIDGE_PATH = [
   [.7526, .2824]
 ];
 
+function startBridgeLocalPoint(mapX, mapY) {
+  const bridge = pointOnRoute(-70 / TOTAL, 805, 851),
+    dx = mapX - bridge.x,
+    dy = mapY - bridge.y,
+    cosine = Math.cos(bridge.angle),
+    sine = Math.sin(bridge.angle);
+  return [dx * cosine + dy * sine, -dx * sine + dy * cosine];
+}
+
+function pointIsOnStartBridge(mapX, mapY) {
+  const [across, along] = startBridgeLocalPoint(mapX, mapY);
+  return Math.abs(across) <= 2.4 && Math.abs(along) <= 44;
+}
+
+function pointIsNearStartBridge(mapX, mapY) {
+  const [across, along] = startBridgeLocalPoint(mapX, mapY);
+  return Math.abs(across) <= 14 && Math.abs(along) <= 18;
+}
+
 function drawVekaraBridge(m, w, h) {
   const scale = m.w / 805;
   const points = VEKARA_BRIDGE_PATH.map(([mapX, mapY]) => ({
@@ -170,65 +189,6 @@ function drawStartBridge(m, w, h, now) {
     c.fill();
   }
   // The deck is drawn over the boat: at distance zero the rower is underneath it.
-  const size = Math.max(1, scale * .38),
-    colors = ['#d84838', '#f8d848', '#3888d8', '#f0e8d0', '#c068a0'],
-    spectatorCount = 14;
-  const racerCount = botRacers.length + 1;
-  const fleetDistance = (
-    distance +
-    botRacers.reduce((sum, bot) => sum + bot.distance, 0)
-  ) / racerCount;
-  // Departures happen in four distinct groups.  One supporter stays all day.
-  // The visible headcount becomes 14 → 7 → 5 → 3 → 1 as the fleet recedes.
-  const departureAt = index => index < 1 ? Infinity : index < 3 ? 1100 : index < 5 ? 750 : index < 7 ? 450 : 150;
-  // Keep every spectator inside the bridge deck.  They walk along the road
-  // toward its far end and disappear beyond the camera, never sideways into
-  // Hakovirta.
-  c.save();
-  c.beginPath();
-  c.rect(-deck / 2, -halfSpan, deck, halfSpan * 2);
-  c.clip();
-  for (let i = 0; i < spectatorCount; i++) {
-    const walkProgress = clamp((fleetDistance - departureAt(i)) / 150),
-      smoothWalk = walkProgress * walkProgress * (3 - 2 * walkProgress);
-    const startY = (-12 + i * 1.8) * scale,
-      cy = startY + smoothWalk * (halfSpan * 1.7 - startY),
-      cx = (i % 2 ? -.22 : .22) * deck,
-      cheer = 1 - smoothWalk * .9,
-      bounce = running && cheer > .15 ? Math.sin(now * .011 + i) * size * .35 * cheer : 0;
-    c.save();
-    c.translate(cx, cy + bounce);
-    const bodyWidth = size * 1.7,
-      bodyHeight = size * 2.15,
-      clap = running && cheer > .15 ? (Math.sin(now * .016 + i) > .2 ? .25 : 1.55) * cheer : .35;
-    c.fillStyle = 'rgba(7,14,28,.32)';
-    c.beginPath();
-    c.ellipse(size * .18, size * 1.7, bodyWidth * .8, size * .42, 0, 0, Math.PI * 2);
-    c.fill();
-    c.fillStyle = colors[i % colors.length];
-    c.beginPath();
-    c.roundRect(-bodyWidth / 2, -size * .1, bodyWidth, bodyHeight, size * .45);
-    c.fill();
-    c.fillStyle = '#e8b080';
-    c.beginPath();
-    c.arc(0, -size * 1.05, size * .72, 0, Math.PI * 2);
-    c.fill();
-    c.strokeStyle = '#e8b080';
-    c.lineWidth = Math.max(1, size * .38);
-    c.lineCap = 'round';
-    c.beginPath();
-    c.moveTo(-bodyWidth * .42, size * .4);
-    c.lineTo(-size * 1.55, -size * clap);
-    c.moveTo(bodyWidth * .42, size * .4);
-    c.lineTo(size * 1.55, -size * clap);
-    c.moveTo(-size * .34, bodyHeight);
-    c.lineTo(-size * .58, bodyHeight + size * .75);
-    c.moveTo(size * .34, bodyHeight);
-    c.lineTo(size * .58, bodyHeight + size * .75);
-    c.stroke();
-    c.restore();
-  }
-  c.restore();
   if (raceStarterImageReady) {
     const sneakProgress = clamp((raceElapsed - 7) / 5),
       smoothSneak = sneakProgress * sneakProgress * (3 - 2 * sneakProgress),
@@ -263,6 +223,21 @@ function drawStartBridge(m, w, h, now) {
       c.fill();
     }
     c.restore();
+  }
+  if (!routeEditorEnabled) {
+    const spectatorSize = shoreSpectatorSize(scale),
+      colors = ['#d84838', '#f8d848', '#3888d8', '#f0e8d0', '#c068a0', '#48a878'];
+    for (let index = 0; index < SHORE_PEOPLE.length; index++) {
+      const [mapX, mapY] = SHORE_PEOPLE[index],
+        pixelX = mapX * 805,
+        pixelY = mapY * 851;
+      // Draw the whole Hakovirta crowd in this final layer. Shore spectators
+      // drawn earlier would otherwise disappear beneath the tightly packed
+      // start boats, portraits and the bridge itself.
+      if (!pointIsNearStartBridge(pixelX, pixelY)) continue;
+      const [across, along] = startBridgeLocalPoint(pixelX, pixelY);
+      drawShoreSpectator(c, across * scale, along * scale, spectatorSize, colors[index % colors.length], now, index);
+    }
   }
   c.restore();
 }

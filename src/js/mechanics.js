@@ -1,5 +1,21 @@
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 
+function targetStrokeRate() {
+  return raceType === 'alternating' ? 35 : 28;
+}
+
+function targetStrokeCycle() {
+  return 60 / targetStrokeRate();
+}
+
+function targetStrokeRecovery() {
+  return targetStrokeCycle() - TARGET_DRIVE;
+}
+
+function optimalStrokeRateCeiling() {
+  return raceType === 'alternating' ? 35 : 28;
+}
+
 function isGoldenBoat() {
   return rower.name === 'Heikki Karjaluoto' &&
     selectedBoat.name === 'Lonka' &&
@@ -47,9 +63,10 @@ function currentStrokeRate(now = performance.now()) {
  * 60 rpm -> ~27 %
  */
 function strokeRateEfficiency(rpm) {
-  if (rpm <= 25) return 1;
+  const ceiling = optimalStrokeRateCeiling();
+  if (rpm <= ceiling) return 1;
 
-  const excess = rpm - 25;
+  const excess = rpm - ceiling;
 
   return clamp(
     Math.exp(-Math.pow(excess / 29, 1.55)),
@@ -65,18 +82,20 @@ function strokeRateEfficiency(rpm) {
  * Yli 25 rpm rasitus kasvaa epälineaarisesti.
  */
 function strokeRateStrain(rpm) {
-  if (rpm <= 25) return 0;
+  const ceiling = optimalStrokeRateCeiling();
+  if (rpm <= ceiling) return 0;
 
-  return Math.pow((rpm - 25) / 18, 2.3);
+  return Math.pow((rpm - ceiling) / 18, 2.3);
 }
 
 /*
  * Ylikovan vetotahdin vaikutus rakkoihin.
  */
 function strokeRateBlisterFactor(rpm) {
-  if (rpm <= 25) return 1;
+  const ceiling = optimalStrokeRateCeiling();
+  if (rpm <= ceiling) return 1;
 
-  return 1 + 3.5 * Math.pow((rpm - 25) / 25, 1.7);
+  return 1 + 3.5 * Math.pow((rpm - ceiling) / 25, 1.7);
 }
 
 function powerStrain(demand = calculateExerciseDemand()) {
@@ -130,7 +149,7 @@ function calculateExerciseDemand(s = null, active = true, now = performance.now(
   const powerLoad = active ? Math.pow(effectivePower / 70, 2) : 1;
   const overdrive = active ? Math.max(0, (effectivePower - 100) / 10) : 0;
   const powerEffort = .35 + .65 * clamp((effectivePower - 30) / 80);
-  const cadenceEffort = clamp(rpm / TARGET_SPM, .35, 1.45);
+  const cadenceEffort = clamp(rpm / targetStrokeRate(), .35, 1.45);
   const techniqueCost = 1 + .25 * clamp(1 - quality);
   const resistance = 1 + Math.max(0, s?.speedLoss || 0) / 4.6;
   const effort = active
@@ -224,10 +243,17 @@ function rowingEffort(s, active = true) {
 function maxRowerSpeed(r = rower) {
   const speedFactor = crewStat('speed', r) / 99;
   const powerFactor = .65 + .35 * crewStat('power', r) / 99;
-  return MAX_SPEED * speedFactor * powerFactor * (raceType === 'double' && r === rower ? doubleSpeedFactor() : 1);
+  const calculated = MAX_SPEED * speedFactor * powerFactor * (raceType === 'church' && r === rower ? CHURCH_SPEED_FACTOR : ['double', 'alternating'].includes(raceType) && r === rower ? doubleSpeedFactor() : 1);
+  return Math.min(calculated, tourSpeedLimit(r));
 }
 
-// Virallisten 60 km reittiennätysten nopeussuhteet: parisoutu / yksinsoutu.
+function tourSpeedLimit(r) {
+  return isTourRace() && r.name !== 'Ari Kankkunen' ? 10 : Infinity;
+}
+
+const CHURCH_SPEED_FACTOR = (5 * 3600 + 4 * 60 + 50) / (3 * 3600 + 51 * 60 + 20);
+
+// Virallisten 60 km reittiennätysten nopeussuhteet: vuorosoutu / yksinsoutu.
 const DOUBLE_SPEED_FACTORS = {
   male: (5 * 3600 + 4 * 60 + 50) / (4 * 3600 + 42 * 60 + 50),
   female: (6 * 3600 + 1 * 60 + 11) / (5 * 3600 + 23 * 60 + 8),
@@ -238,10 +264,12 @@ function doubleSpeedFactor() {
 }
 
 function boatWeight() {
-  return materials[material].weight;
+  return selectedBoat.weight || materials[material].weight;
 }
 
 function boatSpeedFactor() {
+  if (raceType === 'church') return 1.04;
+  if (usesKayak()) return 1;
   return (.90 + .02 * selectedBoat.hull) *
     (1 + (50 - boatWeight()) * .0015);
 }
@@ -308,7 +336,7 @@ function updateCramps(dt, effort, active = true, s = null, demand = calculateExe
     hydration > 75 &&
     energy > 40 &&
     sodiumBalance > -300
-      ? effort < .25 && rpm <= 25
+      ? effort < .25 && rpm <= optimalStrokeRateCeiling()
         ? 32
         : 5
       : 0;

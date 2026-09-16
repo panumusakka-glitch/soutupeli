@@ -24,7 +24,7 @@ function createGame(directory = root, legacy = false, location = {hostname:'exam
     return item;
   }
   for(const [,id] of html.matchAll(/id="([^"]+)"/g))nodes[id]=node();
-  const box={console,document:{getElementById:id=>{assert(nodes[id],`Missing element ${id}`);return nodes[id]},createElement:node,
+  const box={console,URLSearchParams,nodes,document:{getElementById:id=>{assert(nodes[id],`Missing element ${id}`);return nodes[id]},createElement:node,
     querySelector:()=>node(),querySelectorAll:()=>[],addEventListener:(k,f)=>listeners[k]=f,body:node(),hidden:false},
     localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},
     speechSynthesis:{getVoices:()=>[{name:'Harri',lang:'fi-FI'},{name:'Satu',lang:'fi-FI'}],speak:u=>spoken.push(u),cancel:noop},

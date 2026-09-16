@@ -36,6 +36,18 @@ const boats = [{
   headwind: 4,
   stability: 3,
   spruceOnly: true
+}, {
+  name: 'Kirkkovene',
+  material: 'spruce',
+  hull: 5,
+  headwind: 5,
+  stability: 5,
+  weight: 650,
+  spruceOnly: true,
+  churchOnly: true
+}, {
+  name: 'Retkikanootti', label: 'Kajakki', material: 'spruce', hull: 4, headwind: 3, stability: 3,
+  weight: 18, canoeOnly: true
 }];
 const materials = {
   "mahogany": {
