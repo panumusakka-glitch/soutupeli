@@ -21,8 +21,9 @@ function populateBoats(preferredName) {
 }
 populateBoats(DEFAULT_CREW.boat);
 selectDefaultCrew();
+document.getElementById('fiveMinuteRace').onclick = () => setRaceLength('five');
+document.getElementById('twentyMinuteRace').onclick = () => setRaceLength('twenty');
 document.getElementById('fullRace').onclick = () => setRaceLength('full');
-document.getElementById('quickRace').onclick = () => setRaceLength('quick');
 document.getElementById('maleRowers').onclick = () => { selectRowerGender('male'); if (isCrewRace()) populatePartnerRowers(); selectCrew(); };
 document.getElementById('femaleRowers').onclick = () => { selectRowerGender('female'); selectCrew(); };
 document.getElementById('mixedRowers').onclick = () => {
