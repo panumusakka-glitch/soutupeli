@@ -234,9 +234,7 @@ function selectCrew() {
   material = materialSelect.value;
   selectedProvisionPack = provisionPackSelect.value;
   if (hasRower) updatePortrait();
-  if (hasRower) document.getElementById('routeRecord').textContent = raceLength === 'quick'
-    ? '30 min pikakisa · koko Partalansaaren reitti'
-    : raceType === 'canoe' ? 'Kanoottien retkisoutu · Partalansaari' : routeRecordLabel(crewCategory(), raceType);
+  if (hasRower) document.getElementById('routeRecord').textContent = raceType === 'canoe' ? 'Kanoottien retkisoutu · Partalansaari' : routeRecordLabel(crewCategory(), raceType);
   document.getElementById('rowerProfile').hidden = !hasRower;
   const labels = [['power', 'Voima'], ['speed', 'Nopeus'], ['endurance', 'Kestävyys'], ['skill', 'Taito'], ['cramp', 'Kramppiherkkyys'], ['hands', 'Käsien kovuus'], ['stomach', 'Vatsan toiminta']];
   const rowerStats = document.getElementById('rowerStats');
