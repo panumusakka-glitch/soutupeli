@@ -1318,7 +1318,7 @@ function draw(now) {
       drawKietavalaFerry(m);
       for (const [index, bot] of botRacers.entries()) {
         const botPoint = startGridFormationPoint(botMotionDistance(bot, index, now), index + 1, botRacers.length + 1, bot.lane, m, bot.routeChoice, bot.distance);
-        botBoat(m.x + botPoint.x, m.y + botPoint.y, botPoint.angle, bot);
+        botBoat(m.x + botPoint.x, m.y + botPoint.y, botPoint.angle, bot, now);
       }
       const p = startGridFormationPoint(playerMotionDistance(now), 0, botRacers.length + 1, playerLane, m, playerRouteChoice, distance);
       boat(m.x + p.x, m.y + p.y, p.angle, now);
