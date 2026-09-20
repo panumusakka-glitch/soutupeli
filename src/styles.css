@@ -157,18 +157,40 @@ button:focus-visible,select:focus-visible{outline:3px solid #f8d848;outline-offs
 @media(max-width:800px){body:not(.race-mode) .route-status{display:none}.route-status #routeSection{flex-basis:100%}.race-mode #crewLabel{display:none}.leaderboard{top:6px;left:6px;width:min(210px,62%);padding:5px}.leaderboard h2{font-size:11px}.leaderboard li{font-size:10px;grid-template-columns:20px minmax(0,1fr) 43px}.leaderboard li small{font-size:9px}}
 
 @media(max-width:800px) and (orientation:portrait){
- .race-mode .dashboard>div{padding:3px 4px}
- .race-mode .dashboard span,.race-mode .dashboard small{font-size:10px;line-height:1.15}
- .race-mode .dashboard strong{font-size:18px;line-height:1.15}
- .race-mode .dashboard #quality{font-size:12px;line-height:22px}
+ .race-mode header{padding:2px 2px 4px}
+ .race-mode header h1{font-size:14px;max-width:170px}
+ .race-mode header .text-button{min-height:30px;font-size:12px}
+ .race-mode .dashboard>div{padding:2px 4px}
+ .race-mode .dashboard span,.race-mode .dashboard small{font-size:9px;line-height:1.1}
+ .race-mode .dashboard strong{font-size:17px;line-height:1.1}
+ .race-mode .dashboard #quality{font-size:11px;line-height:19px}
  .race-mode .dashboard small{white-space:nowrap}
  .race-mode .dashboard small #totalDistance{display:inline;font-size:inherit}
  .race-mode .body-dashboard{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
- .race-mode .body-dashboard>div{padding:4px 5px}
- .race-mode .meter-card p{display:flex;align-items:center;justify-content:space-between;gap:2px;font-size:9px;white-space:nowrap}
- .race-mode .meter-card p b{font-size:12px}
+ .race-mode .body-dashboard>div{padding:3px 4px}
+ .race-mode .meter-card p{display:flex;align-items:center;justify-content:space-between;gap:2px;margin-bottom:2px;font-size:9px;white-space:nowrap}
+ .race-mode .meter-card p b{font-size:11px}
+ .race-mode .meter{height:4px}
+ .race-mode .race-clock{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:4px}
+ .race-mode .race-clock strong{font-size:12px;line-height:1;margin:0}
+ .race-mode .race-clock small{font-size:9px;line-height:1.05}
+ .race-mode .route-status{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:3px 6px;padding:3px 5px;font-size:10px}
+ .race-mode .route-status #routeSection{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-basis:auto}
+ .race-mode #mapToggle{min-height:28px;padding:2px 7px;font-size:10px}
+ .race-mode footer{gap:4px;padding:5px}
+ .race-mode .stroke-track{height:24px}
+ .race-mode .zone{font-size:9px}
+ .race-mode .stroke-guide p{margin-top:2px}
+ .race-mode .stroke-guide p b,.race-mode .stroke-guide p span{font-size:10px}
+ .race-mode .power-control{gap:2px;padding:4px 7px}
+ .race-mode .power-control label{font-size:10px}
+ .race-mode .mobile-actions{grid-template-columns:minmax(0,1fr) 80px;gap:5px}
+ .race-mode .mobile-actions button{min-height:44px;padding:5px;font-size:14px}
+ .race-mode .speech-controls{gap:5px}
+ .race-mode .speech-controls button{min-height:30px;padding:4px 6px;font-size:12px}
  .leaderboard:not(.expanded) li:not(.player){display:none}
- .leaderboard:not(.expanded){width:min(190px,58%);background:rgba(16,24,48,.62)}
+ .leaderboard:not(.expanded){width:min(180px,55%);background:rgba(16,24,48,.72)}
+ .leaderboard{top:4px;left:4px;padding:4px}
 }
 
 
@@ -197,6 +219,7 @@ body.start-menu #startOverlay .creator-credit{display:block;margin:0;color:var(-
 .route-record{display:none;position:absolute;z-index:1;top:14px;right:16px;margin:0;color:#f8f0c0;font-size:12px;font-weight:700;text-align:right;text-shadow:2px 2px #080f20;pointer-events:none}
 .race-mode .route-record{display:block}
 @media(max-width:800px){.route-record{top:8px;right:8px;font-size:10px}}
+@media(max-width:800px) and (orientation:portrait){.route-record{top:4px;right:4px;width:38%;padding:3px 4px;background:rgba(16,24,48,.72);font-size:8px;line-height:1.15}}
 
 /* Saimaa at dusk: preserve the map pixels, then add an arcade sunset and water-glow layer. */
 body.start-menu .lake-wrap{background:#06132d}
