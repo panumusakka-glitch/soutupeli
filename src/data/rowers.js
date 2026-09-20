@@ -492,17 +492,6 @@ const rowers = [...churchCrews, ...canoeRowers, ...[
   "blisterImmune": false,
   "voiceGender": "male"
 }, {
-  "name": "Theo \"Ei Leiki\" Kolehmainen",
-  "speed": 90,
-  "endurance": 86,
-  "skill": 82,
-  "cramp": 20,
-  "hands": 96,
-  "stomach": 90,
-  "power": 99,
-  "blisterImmune": false,
-  "voiceGender": "male"
-}, {
   "name": "Seppo Räty",
   "speed": 88,
   "endurance": 30,

@@ -31,7 +31,6 @@ const portraitFiles = {
   'Einari "Leppäsuaren Einar" Luukkonen': 'einari-luukkonen.png',
   'Marko Lepp\u00e4m\u00e4ki': 'marko-leppamaki.png',
   'Toni Sirviö': 'toni-sirvio.png',
-  'Theo "Ei Leiki" Kolehmainen': 'theo-kolehmainen.png',
   'Seppo Räty': 'seppo-raty.png',
   'Sale Steel': 'Sale-Steel.png',
   'Juho Mikkonen': 'juho-mikkonen.png',

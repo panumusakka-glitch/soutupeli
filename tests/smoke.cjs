@@ -40,7 +40,6 @@ run(`const twentyMinuteSave=snapshot();if(!validRace(twentyMinuteSave)||twentyMi
 nodes.fullRace.onclick();assert.equal(run('raceLength'),'full');assert.equal(run('raceTimeMultiplier()'),1);
 assert.equal(nodes.canoeRace.hidden,true);assert.equal(nodes.canoeRace.disabled,true);assert.notEqual(typeof nodes.canoeRace.onclick,'function');
 assert.equal(run("portraitFiles['Juho Moilanen']"),'juho-moilanen.png');assert.equal(run("portraits['Juho Moilanen'].src"),'juho-moilanen.png');
-assert.equal(run(`rowers.find(r=>r.name==='Theo "Ei Leiki" Kolehmainen').power`),99);assert.equal(run(`portraitFiles['Theo "Ei Leiki" Kolehmainen']`),'theo-kolehmainen.png');assert.equal(run(`portraits['Theo "Ei Leiki" Kolehmainen'].src`),'theo-kolehmainen.png');
 run(`setSingleStart('thursday');resetBotRacers()`);assert.deepEqual(plain(run("botRacers.filter(bot=>bot.raceType==='canoe').map(bot=>bot.rower.name)")),['Tero Tiitu','Juho Moilanen']);assert.equal(run("(()=>{const pair=botRacers.filter(bot=>bot.raceType==='canoe');return pair[0].distance===pair[1].distance&&Math.abs(pair[0].lane-pair[1].lane)===1})()"),true);run(`setSingleStart('saturday');resetBotRacers()`);assert.equal(run("botRacers.some(bot=>bot.rower.name==='Tero Tiitu')"),false);
 run(`rowerSelect.value=String(rowers.findIndex(r=>r.power===99));selectCrew();`);assert(nodes.rowerStats.innerHTML.includes('Voima')&&nodes.rowerStats.innerHTML.includes('99 / 99'));
 run('selectDefaultCrew()');
