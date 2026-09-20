@@ -186,6 +186,13 @@ function effectiveStrokePower() {
   return calculateExerciseDemand().effectivePower;
 }
 
+// Stroke power improves boat speed with diminishing returns. A linear power
+// multiplier made elite rowers unrealistically faster than the historical
+// route record even though the physiological cost was already nonlinear.
+function strokePowerSpeedFactor(power = effectiveStrokePower()) {
+  return Math.pow(Math.max(0, power) / 70, .35);
+}
+
 function updateWPrime(dt, active) {
   if (!active) return;
 
@@ -372,8 +379,9 @@ function updateBody(dt, s, raceSec, active) {
   gutCarbs -= carbAbsorb;
   bloodCarbs = clamp(bloodCarbs + carbAbsorb, 0, 45);
 
-  // Competition food first supports blood glucose and only then spares glycogen.
-  const bloodBurn = Math.min(bloodCarbs, carbBurn * .35);
+  // During a long race, regularly ingested carbohydrate supplies a substantial
+  // share of working-muscle carbohydrate use and spares limited glycogen.
+  const bloodBurn = Math.min(bloodCarbs, carbBurn * INGESTED_CARB_USE_SHARE);
   bloodCarbs -= bloodBurn;
 
   const substanceBurn = active ? 8 * Math.pow(nicotineAtStart, 1.3) * hour : 0;

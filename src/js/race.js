@@ -465,6 +465,9 @@ function openLaneFor(actor, racers, allowStationaryBypass = false) {
 const TRAFFIC_ACTIVE_DISTANCE = 500;
 const TRAFFIC_PASSING_RANGE = 52;
 const TRAFFIC_FOLLOW_GAP = 4;
+// The map sprites are deliberately much larger than the geographic scale.
+// Keep Esa visibly in Ari's wake without covering Ari's boat and portrait.
+const ESA_ARI_FOLLOW_GAP = 90;
 const ESA_ARI_FINISH_STRAIGHT = 500;
 function racerAheadInLane(actor, racers, range = TRAFFIC_PASSING_RANGE) {
   return racers
@@ -527,13 +530,13 @@ function updateEsaAriTactic() {
   if (leader.finishedAt !== null && leader.finishedAt < raceElapsed) return;
 
   if (!onFinishStraight) {
-    follower.distance = Math.max(0, leader.distance - TRAFFIC_FOLLOW_GAP);
+    follower.distance = Math.max(0, leader.distance - ESA_ARI_FOLLOW_GAP);
     follower.speed = leader.speed;
   } else if (esaShouldLead) {
-    esa.distance = Math.min(TOTAL, Math.max(esa.distance, ari.distance + TRAFFIC_FOLLOW_GAP));
-    if (!ari.player && ari.finishedAt === null) ari.distance = Math.min(ari.distance, esa.distance - TRAFFIC_FOLLOW_GAP);
+    esa.distance = Math.min(TOTAL, Math.max(esa.distance, ari.distance + ESA_ARI_FOLLOW_GAP));
+    if (!ari.player && ari.finishedAt === null) ari.distance = Math.min(ari.distance, esa.distance - ESA_ARI_FOLLOW_GAP);
   } else if (esa.finishedAt === null) {
-    esa.distance = Math.min(esa.distance, Math.max(0, ari.distance - TRAFFIC_FOLLOW_GAP));
+    esa.distance = Math.min(esa.distance, Math.max(0, ari.distance - ESA_ARI_FOLLOW_GAP));
     esa.speed = ari.speed;
   }
   if (!onFinishStraight) {
@@ -546,10 +549,10 @@ function updateEsaAriTactic() {
     esa.finishedAt = raceElapsed;
   }
   if (ari !== esa && ari.finishedAt === raceElapsed && follower === ari) {
-    ari.distance = TOTAL - TRAFFIC_FOLLOW_GAP;
+    ari.distance = TOTAL - ESA_ARI_FOLLOW_GAP;
     ari.finishedAt = null;
   } else if (esa.finishedAt === raceElapsed && follower === esa) {
-    esa.distance = TOTAL - TRAFFIC_FOLLOW_GAP;
+    esa.distance = TOTAL - ESA_ARI_FOLLOW_GAP;
     esa.finishedAt = null;
   }
 }
@@ -994,7 +997,7 @@ function update(dt, now) {
         crampFactor() *
         (.72 + .28 * crewStat('speed') / 99) *
         boatSpeedFactor() *
-        effectiveStrokePower() / 70 *
+        strokePowerSpeedFactor() *
         raceDayFactor(raceDay) *
         cadenceEfficiency -
       (

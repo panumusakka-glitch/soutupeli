@@ -25,17 +25,20 @@ for (let race = 1; race <= RACES; race++) {
     saveRace=()=>true;
     rowerChatter.tick=()=>{};
     rowerChatter.announceFinish=()=>{};
-    let place=null, nextSportsDrink=0, nextWater=0, nextPickle=0, simNow=1000;
+    let place=null, nextSportsDrink=0, nextGel=600, nextWater=2700, nextPickle=1800, nextSaltwater=900, simNow=1000;
+    const take=key=>{const before=inventory[key];consume(key);return inventory[key]<before;};
     showFinishReport=(sec,rank)=>place=rank;
     while(playerFinishedAt===null&&raceElapsed<36000){
       const progress=distance/TOTAL;
       strokePower=progress<.10?78:progress<.85?85:90;
-      if(raceElapsed>=nextSportsDrink){consume('sportsdrink');nextSportsDrink+=720;}
-      if(raceElapsed>=nextWater){consume('water');nextWater+=1800;}
-      if(raceElapsed>=nextPickle){consume('pickle');nextPickle+=1800;}
+      if(raceElapsed>=nextSportsDrink&&take('sportsdrink'))nextSportsDrink+=1200;
+      if(raceElapsed>=nextGel&&take('gel'))nextGel+=1800;
+      if(raceElapsed>=nextWater&&take('water'))nextWater+=5400;
+      if(raceElapsed>=nextPickle&&take('pickle'))nextPickle+=3600;
+      if(raceElapsed>=nextSaltwater&&take('saltwater'))nextSaltwater+=3600;
       quality=.9;
       simNow+=5000;
-      strokeTimes=[simNow-2857,simNow];
+      strokeTimes=[simNow-2143,simNow];
       update(5,simNow);
     }
     const finishedBots=botRacers.filter(bot=>bot.finishedAt!==null).sort((a,b)=>a.finishedAt-b.finishedAt);

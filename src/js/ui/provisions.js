@@ -108,7 +108,7 @@ function setProvisions(open) {
 function renderProvisions() {
   document.querySelector('.provision-grid').innerHTML = Object.entries(foods).map(([key, f]) => `<button class="provision" data-item="${key}"><b>${f.name}</b><span>${foodPortion(f)}</span><small id="count-${key}"></small></button>`).join('');
   const shortNames = {
-    gel: 'Dexal', pickle: 'Kurkku', juice: 'Mustikka', saltwater: 'Suolavesi', sportsdrink: 'Hart',
+    gel: 'Geeli', pickle: 'Suolakurkku', juice: 'Mustikka', saltwater: 'Suolavesi', sportsdrink: 'HartSport',
     candy: 'Karkki', water: 'Vesi', beer: 'Karhu', cigarette: 'Nortti', sausage: 'HK',
     chips: 'Sipsi', donut: 'Donitsi', cola: 'Cola'
   };

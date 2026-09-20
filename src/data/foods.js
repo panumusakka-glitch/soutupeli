@@ -147,8 +147,8 @@ const foods = {
 const provisionPacks = {
   athlete: {
     name: "Urheilijan paketti",
-    description: "Energiageeliä, elektrolyyttejä, urheilujuomaa ja vettä.",
-    inventory: {gel: 10, pickle: 8, saltwater: 6, sportsdrink: 20, water: 4}
+    description: "Noin 75 g hiilihydraattia tunnissa kahdeksan tunnin suoritukseen.",
+    inventory: {gel: 14, pickle: 8, saltwater: 6, sportsdrink: 20, water: 4}
   },
   fun: {
     name: "Hupisoutajan paketti",
