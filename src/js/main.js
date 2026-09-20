@@ -177,7 +177,7 @@ function loop(now) {
     quality = .92;
     strokePulse = .5;
   }
-  const dt = realDt * (previewMode ? previewPlaybackRate : 1);
+  const dt = realDt * (previewMode ? previewPlaybackRate : raceTimeMultiplier());
   if (document.hidden) pauseRace();
   update(dt, now);
   if (running && !previewMode && now - lastSaveAt >= 5000) saveRace();
