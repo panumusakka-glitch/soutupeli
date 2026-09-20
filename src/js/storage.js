@@ -51,7 +51,7 @@ function updateRouteRecord(gender, name, seconds, type = 'single') {
 const stateRanges = {
   elapsed: [0, 1e8],
   distance: [0, TOTAL - .00001],
-  speed: [0, Math.max(...rowers.map(r => maxRowerSpeed(r))) * Math.max(CHURCH_SPEED_FACTOR, ...Object.values(DOUBLE_SPEED_FACTORS))],
+  speed: [0, Math.max(...rowers.map(r => maxRowerSpeed(r))) * Math.max(CHURCH_SPEED_FACTOR, ...Object.values(DOUBLE_SPEED_FACTORS)) * QUICK_RACE_SPEED_FACTOR],
   quality: [0, 1],
   carbs: [0, 420],
   bloodCarbs: [0, 60],
@@ -84,6 +84,7 @@ function validRace(s) {
   if (!s || s.version !== 1 || !rowers.some(r => r.name === s.rower && !r.hidden) || !boats.some(b => b.name === s.boat) || !Object.hasOwn(materials, s.material)) return false;
   const savedRower = rowers.find(r => r.name === s.rower), savedBoat = boats.find(b => b.name === s.boat);
   if (!Object.hasOwn(provisionPacks, s.provisionPack)) return false;
+  if (!['full', 'quick'].includes(s.raceLength)) return false;
   if (!['single', 'double', 'alternating', 'church', 'canoe'].includes(s.raceType)) return false;
   if (s.raceType === 'canoe' && !canoeRowers.some(candidate => candidate.name === s.rower)) return false;
   if (s.raceType === 'single' && !['thursday', 'saturday'].includes(s.singleStart)) return false;
@@ -108,6 +109,7 @@ function loadRace(slot = activeSaveSlot) {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_SLOTS[slot - 1]));
     if (s && !Object.hasOwn(s, 'raceType')) s.raceType = 'single';
+    if (s && !Object.hasOwn(s, 'raceLength')) s.raceLength = 'full';
     if (s && !Object.hasOwn(s, 'singleStart')) s.singleStart = 'saturday';
     if (s && !Object.hasOwn(s, 'alternatingStart')) s.alternatingStart = 'saturday';
     if (s && !Object.hasOwn(s, 'doubleStart')) s.doubleStart = 'saturday';
@@ -154,6 +156,7 @@ function loadRace(slot = activeSaveSlot) {
 function snapshot() {
   return {
     version: 1,
+    raceLength,
     raceType,
     singleStart,
     alternatingStart,
@@ -286,7 +289,8 @@ function showSaveSlots(mode) {
     const savedCrew = save && !['single', 'church'].includes(save.raceType) ? `${save.rower} & ${save.partnerRower}` : save?.rower;
     const churchStartName = save?.churchStart === 'thursday' ? 'torstain retkisoutu' : save?.churchStart === 'night' ? 'yösoutu klo 21' : 'lauantain SM-lähtö';
     const seriesName = save?.raceType === 'canoe' ? 'Kanootti · retkisoutu' : save?.raceType === 'church' ? `Kirkkovene · ${churchStartName}` : save?.raceType === 'alternating' ? `Vuorosoutu${save.alternatingStart === 'thursday' ? ' · retkisoutu' : ''}` : save?.raceType === 'double' ? `Parisoutu${save.doubleStart === 'thursday' ? ' · retkisoutu' : ''}` : save?.singleStart === 'thursday' ? 'Yksinsoutu · retkisoutu' : 'Yksinsoutu';
-    const details = save ? `${savedCrew} · ${seriesName} · ${(save.distance / 1000).toFixed(1).replace('.', ',')} km · ${formatTime(save.elapsed)}` : 'Tyhjä';
+    const lengthName = save?.raceLength === 'quick' ? '30 min pikakisa · ' : '';
+    const details = save ? `${savedCrew} · ${lengthName}${seriesName} · ${(save.distance / 1000).toFixed(1).replace('.', ',')} km · ${formatTime(save.elapsed)}` : 'Tyhjä';
     const action = mode === 'continue' ? 'Jatka' : save ? 'Korvaa' : 'Valitse';
     return `<button class="save-slot" type="button" data-mode="${mode}" data-slot="${slot}"${mode === 'continue' && !save ? ' disabled' : ''}><b>Paikka ${slot}</b><span>${details}</span><em>${action}</em></button>`;
   }).join('');
@@ -320,6 +324,7 @@ function resumeRace(slot = activeSaveSlot) {
   reset();
   const savedRowerIndex = rowers.findIndex(r => r.name === s.rower);
   const savedPartnerIndex = rowers.findIndex(r => r.name === s.partnerRower);
+  setRaceLength(s.raceLength);
   setSingleStart(s.singleStart);
   setAlternatingStart(s.alternatingStart);
   setDoubleStart(s.doubleStart);
@@ -388,7 +393,7 @@ function resumeRace(slot = activeSaveSlot) {
         crew: !['single', 'church', 'canoe'].includes(saved.raceType) && savedCrew ? savedCrew.rowers.slice() : [botRower.name],
         startAt: Number.isFinite(saved.startAt) ? saved.startAt : seriesStartOffset(saved.raceType) - seriesStartOffset(s.raceType),
         distance: clamp(saved.distance, 0, TOTAL),
-        speed: clamp(saved.speed, 0, maxRowerSpeed(botRower) * (saved.raceType === 'church' ? CHURCH_SPEED_FACTOR : saved.raceType !== 'single' ? (DOUBLE_SPEED_FACTORS[botRower.voiceGender] || DOUBLE_SPEED_FACTORS.mixed) : 1)),
+        speed: clamp(saved.speed, 0, maxRowerSpeed(botRower) * (saved.raceType === 'church' ? CHURCH_SPEED_FACTOR : saved.raceType !== 'single' ? (DOUBLE_SPEED_FACTORS[botRower.voiceGender] || DOUBLE_SPEED_FACTORS.mixed) : 1) * raceSpeedMultiplier()),
         lane: Number.isFinite(saved.lane) ? clamp(saved.lane, -3, 3) : initialRaceLane(index),
         laneTarget: Number.isFinite(saved.laneTarget) ? clamp(saved.laneTarget, -3, 3) : initialRaceLane(index),
         routeBias: Number.isFinite(saved.routeBias) ? clamp(saved.routeBias, -3, 3) : initialRaceLane(index),
@@ -411,7 +416,7 @@ function resumeRace(slot = activeSaveSlot) {
   }
   rowerChatter.restore(s.chatter, rower.name, raceElapsed);
   running = true;
-  recordEligible = true;
+  recordEligible = raceLength === 'full';
   document.body.classList.remove('start-menu');
   rowingAudio.stopMenuMusic();
   last = performance.now();
