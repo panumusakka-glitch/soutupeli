@@ -54,6 +54,10 @@
         </div>
         <p class="creator-credit">Tekijä: Panu Musakka</p>
         <div id="selectionPanel" class="selection-panel" hidden>
+          <div class="race-type race-length" role="group" aria-label="Valitse kilpailun kesto">
+            <button id="fullRace" class="active" type="button" aria-pressed="true">Täysi Suursoutu</button>
+            <button id="quickRace" type="button" aria-pressed="false">30 min pikakisa</button>
+          </div>
           <div class="race-type" role="group" aria-label="Valitse kilpailusarja">
             <button id="singleRace" type="button">Yksinsoutu</button>
             <button id="doubleRace" type="button">Parisoutu</button>
@@ -179,16 +183,16 @@
       <p class="physiology-note">Pelimalli arvioi hikoilua, hiilihydraattien imeytymistä, natriumin menetystä ja rasituksen kertymistä. Se on pelillinen simulaatio, ei yksilöllinen ravitsemusohje.</p>
     </section>
   </main>
-  <script src="data/config.js"></script>
+  <script src="data/config.js?v=2"></script>
   <script src="data/rowers.js?v=15"></script>
   <script src="data/boats.js?v=4"></script>
   <script src="data/foods.js"></script>
   <script src="data/portraits.js?v=7"></script>
   <script src="data/route.js?v=8"></script>
   <script src="data/dialogue.js"></script>
-  <script src="js/state.js?v=9"></script>
+  <script src="js/state.js?v=10"></script>
   <script src="js/ui/hud.js"></script>
-  <script src="js/ui/selection.js?v=15"></script>
+  <script src="js/ui/selection.js?v=16"></script>
   <script src="js/ui/provisions.js"></script>
   <script src="js/audio/effects.js"></script>
   <script src="js/audio/chatter.js"></script>
@@ -199,8 +203,8 @@
   <script src="js/map/route-editor.js?v=29"></script>
   <script src="js/map/characters.js?v=10"></script>
   <script src="js/map/bridge.js?v=36"></script>
-  <script src="js/storage.js?v=21"></script>
-  <script src="js/race.js?v=25"></script>
-  <script src="js/main.js?v=21"></script>
+  <script src="js/storage.js?v=22"></script>
+  <script src="js/race.js?v=26"></script>
+  <script src="js/main.js?v=22"></script>
 </body>
 </html>
