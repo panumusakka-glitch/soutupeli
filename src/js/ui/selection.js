@@ -27,6 +27,16 @@ function isTourRace() {
 function raceUsesReverseRoute() {
   return isTourRace() || raceType === 'church' && churchStart === 'night';
 }
+function setRaceLength(value) {
+  raceLength = value === 'quick' ? 'quick' : 'full';
+  for (const [id, mode] of [['fullRace', 'full'], ['quickRace', 'quick']]) {
+    const button = document.getElementById(id), active = raceLength === mode;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  }
+  if (!running) resetBotRacers();
+  selectCrew();
+}
 function updateRouteDirectionCopy() {
   const reverse = raceUsesReverseRoute();
   document.getElementById('startLocation').textContent = reverse
@@ -224,7 +234,9 @@ function selectCrew() {
   material = materialSelect.value;
   selectedProvisionPack = provisionPackSelect.value;
   if (hasRower) updatePortrait();
-  if (hasRower) document.getElementById('routeRecord').textContent = raceType === 'canoe' ? 'Kanoottien retkisoutu · Partalansaari' : routeRecordLabel(crewCategory(), raceType);
+  if (hasRower) document.getElementById('routeRecord').textContent = raceLength === 'quick'
+    ? '30 min pikakisa · koko Partalansaaren reitti'
+    : raceType === 'canoe' ? 'Kanoottien retkisoutu · Partalansaari' : routeRecordLabel(crewCategory(), raceType);
   document.getElementById('rowerProfile').hidden = !hasRower;
   const labels = [['power', 'Voima'], ['speed', 'Nopeus'], ['endurance', 'Kestävyys'], ['skill', 'Taito'], ['cramp', 'Kramppiherkkyys'], ['hands', 'Käsien kovuus'], ['stomach', 'Vatsan toiminta']];
   const rowerStats = document.getElementById('rowerStats');
