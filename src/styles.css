@@ -157,9 +157,16 @@ button:focus-visible,select:focus-visible{outline:3px solid #f8d848;outline-offs
 @media(max-width:800px){body:not(.race-mode) .route-status{display:none}.route-status #routeSection{flex-basis:100%}.race-mode #crewLabel{display:none}.leaderboard{top:6px;left:6px;width:min(210px,62%);padding:5px}.leaderboard h2{font-size:11px}.leaderboard li{font-size:10px;grid-template-columns:20px minmax(0,1fr) 43px}.leaderboard li small{font-size:9px}}
 
 @media(max-width:800px) and (orientation:portrait){
+ .race-mode .dashboard>div{padding:3px 4px}
+ .race-mode .dashboard span,.race-mode .dashboard small{font-size:10px;line-height:1.15}
+ .race-mode .dashboard strong{font-size:18px;line-height:1.15}
+ .race-mode .dashboard #quality{font-size:12px;line-height:22px}
+ .race-mode .dashboard small{white-space:nowrap}
+ .race-mode .dashboard small #totalDistance{display:inline;font-size:inherit}
  .race-mode .body-dashboard{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
  .race-mode .body-dashboard>div{padding:4px 5px}
- .race-mode .meter-card p{font-size:11px}
+ .race-mode .meter-card p{display:flex;align-items:center;justify-content:space-between;gap:2px;font-size:9px;white-space:nowrap}
+ .race-mode .meter-card p b{font-size:12px}
  .leaderboard:not(.expanded) li:not(.player){display:none}
  .leaderboard:not(.expanded){width:min(190px,58%);background:rgba(16,24,48,.62)}
 }
