@@ -110,6 +110,7 @@ footer{display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:center;ba
 .rower-gender{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}.rower-gender-option{min-height:46px;border:2px solid transparent;color:#fff8d8;font:700 16px "Courier New",monospace;opacity:.58}.rower-gender-option[hidden]{display:none!important}.rower-gender-option.male{background:#245aa8}.rower-gender-option.female{background:#c43f48}.rower-gender-option.mixed{background:#6847a8}.rower-gender-option.active{border-color:#fff3a0;box-shadow:3px 3px #080f20;opacity:1}.rower-gender-option:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .race-type{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.race-type button{min-height:46px;background:#101830;border:2px solid #7890b0;color:#fff8d8;font:700 16px "Courier New",monospace}.race-type button.active{background:#245aa8;border-color:#fff3a0;box-shadow:3px 3px #080f20}.race-type-info{margin:8px 0 16px;color:#d8e5ee;font-size:13px}
 @media(max-width:600px){.race-type{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.race-length{grid-template-columns:repeat(3,minmax(0,1fr))}
 #boatStats{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:0}
 #materialStats{font-size:14px;line-height:1.5;margin:10px 0 0;color:var(--muted)}
 #provisionPackStats{font-size:14px;line-height:1.5;margin:10px 0 0;color:var(--muted)}
