@@ -98,7 +98,8 @@ const SINGLE_START_DELAY = 20 * 60;
 const ALTERNATING_START_DELAY = 10 * 60;
 const CHURCH_START_DELAY = 30 * 60;
 function seriesStartOffset(type) {
-  return type === 'church' ? -CHURCH_START_DELAY : type === 'double' ? -SINGLE_START_DELAY : type === 'alternating' ? -ALTERNATING_START_DELAY : 0;
+  const offset = type === 'church' ? -CHURCH_START_DELAY : type === 'double' ? -SINGLE_START_DELAY : type === 'alternating' ? -ALTERNATING_START_DELAY : 0;
+  return offset / raceSpeedMultiplier();
 }
 function randomPlayerRouteChoice() {
   return Math.random() < .95 ? 'primary' : 'alternative';
@@ -615,7 +616,7 @@ function updateBotRacers(dt, s) {
       : ['double', 'alternating'].includes(bot.raceType)
         ? (DOUBLE_SPEED_FACTORS[r.voiceGender] || DOUBLE_SPEED_FACTORS.mixed)
         : 1;
-    const maxSpeed = Math.min(maxRowerSpeed(r) * doubleFactor, tourSpeedLimit(r));
+    const maxSpeed = Math.min(maxRowerSpeed(r) * doubleFactor, tourSpeedLimit(r)) * raceSpeedMultiplier();
     const botPower = botPowerPlan(bot, s);
     const usablePower = effectiveBotPower(bot, botPower);
 
@@ -725,7 +726,7 @@ function start() {
   rowerChatter.arm(rower.name, true);
 
   running = true;
-  recordEligible = true;
+  recordEligible = raceLength === 'full';
   document.body.classList.remove('start-menu');
   rowingAudio.stopMenuMusic();
   document.body.classList.add('race-mode');
@@ -984,7 +985,7 @@ function update(dt, now) {
 
   const ideal = active
     ? (
-        RACE_SPEED_FACTOR * weatherSpeedFactor(raceDay) * (7.05 +
+        RACE_SPEED_FACTOR * raceSpeedMultiplier() * weatherSpeedFactor(raceDay) * (7.05 +
         4.75 *
           Math.pow(quality, 2.2))
       ) *
@@ -1021,7 +1022,7 @@ function update(dt, now) {
       ideal -
         windPenalty(0, gust * (s.windLoad ?? 1)),
       0,
-      maxRowerSpeed()
+      maxRowerSpeed() * raceSpeedMultiplier()
     );
 
   const ferryAdjustedDesired = desired * ferrySpeedFactor(distance);
@@ -1044,7 +1045,7 @@ function update(dt, now) {
     clamp(
       speed,
       0,
-      maxRowerSpeed()
+      maxRowerSpeed() * raceSpeedMultiplier()
     );
 
   raceStats.maxSpeed = Math.max(raceStats.maxSpeed, speed);
