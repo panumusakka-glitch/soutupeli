@@ -67,6 +67,15 @@ function updateInventory() {
     else if (key === 'sausage') count.textContent = `${inventory[key]} palaa jäljellä`;
     else count.textContent = f.unit === 'drink' ? `${(inventory[key] * f.fluid).toFixed(2).replace('.', ',')} l jäljellä` : `${inventory[key]} kpl jäljellä`;
   });
+  document.querySelectorAll('.quick-provision').forEach(b => {
+    const key = b.dataset.item;
+    b.hidden = !Object.hasOwn(provisionPacks[selectedProvisionPack]?.inventory || {}, key);
+    b.disabled = !running || inventory[key] === 0 || raceElapsed < intakeUntil;
+    const count = document.getElementById(`quick-count-${key}`);
+    count.textContent = foods[key].inventoryUnit === 'dl'
+      ? `${(inventory[key] / 10).toFixed(1).replace('.', ',')} l`
+      : String(inventory[key]);
+  });
 }
 function updateIntakeProgress() {
   const progress = document.getElementById('intakeProgress');
@@ -98,6 +107,12 @@ function setProvisions(open) {
 }
 function renderProvisions() {
   document.querySelector('.provision-grid').innerHTML = Object.entries(foods).map(([key, f]) => `<button class="provision" data-item="${key}"><b>${f.name}</b><span>${foodPortion(f)}</span><small id="count-${key}"></small></button>`).join('');
+  const shortNames = {
+    gel: 'Dexal', pickle: 'Kurkku', juice: 'Mustikka', saltwater: 'Suolavesi', sportsdrink: 'Hart',
+    candy: 'Karkki', water: 'Vesi', beer: 'Karhu', cigarette: 'Nortti', sausage: 'HK',
+    chips: 'Sipsi', donut: 'Donitsi', cola: 'Cola'
+  };
+  document.getElementById('quickProvisions').innerHTML = Object.entries(foods).map(([key, f]) => `<button class="quick-provision" data-item="${key}" aria-label="Nauti ${f.name}" title="${f.name}"><span>${shortNames[key] || f.name}</span><b id="quick-count-${key}"></b></button>`).join('');
 }
 function foodPortion(f) {
   const units = f.servingUnits || 1;
