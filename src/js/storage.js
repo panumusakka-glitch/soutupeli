@@ -84,7 +84,7 @@ function validRace(s) {
   if (!s || s.version !== 1 || !rowers.some(r => r.name === s.rower && !r.hidden) || !boats.some(b => b.name === s.boat) || !Object.hasOwn(materials, s.material)) return false;
   const savedRower = rowers.find(r => r.name === s.rower), savedBoat = boats.find(b => b.name === s.boat);
   if (!Object.hasOwn(provisionPacks, s.provisionPack)) return false;
-  if (!['full', 'quick'].includes(s.raceLength)) return false;
+  if (!['full', 'five', 'twenty'].includes(s.raceLength)) return false;
   if (!['single', 'double', 'alternating', 'church', 'canoe'].includes(s.raceType)) return false;
   if (s.raceType === 'canoe' && !canoeRowers.some(candidate => candidate.name === s.rower)) return false;
   if (s.raceType === 'single' && !['thursday', 'saturday'].includes(s.singleStart)) return false;
@@ -110,6 +110,7 @@ function loadRace(slot = activeSaveSlot) {
     const s = JSON.parse(localStorage.getItem(SAVE_SLOTS[slot - 1]));
     if (s && !Object.hasOwn(s, 'raceType')) s.raceType = 'single';
     if (s && !Object.hasOwn(s, 'raceLength')) s.raceLength = 'full';
+    if (s?.raceLength === 'quick') s.raceLength = 'twenty';
     if (s && !Object.hasOwn(s, 'singleStart')) s.singleStart = 'saturday';
     if (s && !Object.hasOwn(s, 'alternatingStart')) s.alternatingStart = 'saturday';
     if (s && !Object.hasOwn(s, 'doubleStart')) s.doubleStart = 'saturday';
@@ -289,7 +290,7 @@ function showSaveSlots(mode) {
     const savedCrew = save && !['single', 'church'].includes(save.raceType) ? `${save.rower} & ${save.partnerRower}` : save?.rower;
     const churchStartName = save?.churchStart === 'thursday' ? 'torstain retkisoutu' : save?.churchStart === 'night' ? 'yösoutu klo 21' : 'lauantain SM-lähtö';
     const seriesName = save?.raceType === 'canoe' ? 'Kanootti · retkisoutu' : save?.raceType === 'church' ? `Kirkkovene · ${churchStartName}` : save?.raceType === 'alternating' ? `Vuorosoutu${save.alternatingStart === 'thursday' ? ' · retkisoutu' : ''}` : save?.raceType === 'double' ? `Parisoutu${save.doubleStart === 'thursday' ? ' · retkisoutu' : ''}` : save?.singleStart === 'thursday' ? 'Yksinsoutu · retkisoutu' : 'Yksinsoutu';
-    const lengthName = save?.raceLength === 'quick' ? '30 min pikakisa · ' : '';
+    const lengthName = save?.raceLength === 'five' ? '5 min · ' : save?.raceLength === 'twenty' ? '20 min · ' : '';
     const details = save ? `${savedCrew} · ${lengthName}${seriesName} · ${(save.distance / 1000).toFixed(1).replace('.', ',')} km · ${formatTime(save.elapsed)}` : 'Tyhjä';
     const action = mode === 'continue' ? 'Jatka' : save ? 'Korvaa' : 'Valitse';
     return `<button class="save-slot" type="button" data-mode="${mode}" data-slot="${slot}"${mode === 'continue' && !save ? ' disabled' : ''}><b>Paikka ${slot}</b><span>${details}</span><em>${action}</em></button>`;
