@@ -26,6 +26,10 @@ assert.equal(developer.run('playerFinishedAt'),developer.run('PREVIEW_RACE_SECON
 assert.equal(developer.run('botRacers.every(bot=>bot.finishedAt!==null)'),true);
 assert(developer.nodes.finishStats.innerHTML.includes('Sijoitus'));
 assert.equal(run('rower.name'), 'Panu Musakka');assert.equal(run('selectedBoat.name'), 'Lonka');assert.equal(nodes.materialSelect.value,'mahogany');assert.equal(nodes.provisionPackSelect.value,'athlete');assert.equal(nodes.startButton.disabled,false);
+run(`setRaceLength('full')`);assert.equal(run('raceLength'),'full');
+nodes.quickRace.onclick();assert.equal(run('raceLength'),'quick');assert.equal(run('raceSpeedMultiplier()'),10);assert(nodes.routeRecord.textContent.includes('30 min pikakisa'));
+run(`const quickSave=snapshot();if(!validRace(quickSave)||quickSave.raceLength!=='quick')throw Error('Quick race save');`);
+nodes.fullRace.onclick();assert.equal(run('raceLength'),'full');assert.equal(run('raceSpeedMultiplier()'),1);
 assert.equal(nodes.canoeRace.hidden,true);assert.equal(nodes.canoeRace.disabled,true);assert.notEqual(typeof nodes.canoeRace.onclick,'function');
 assert.equal(run("portraitFiles['Juho Moilanen']"),'juho-moilanen.png');assert.equal(run("portraits['Juho Moilanen'].src"),'juho-moilanen.png');
 assert.equal(run(`rowers.find(r=>r.name==='Theo "Ei Leiki" Kolehmainen').power`),99);assert.equal(run(`portraitFiles['Theo "Ei Leiki" Kolehmainen']`),'theo-kolehmainen.png');assert.equal(run(`portraits['Theo "Ei Leiki" Kolehmainen'].src`),'theo-kolehmainen.png');
