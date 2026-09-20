@@ -1,7 +1,8 @@
 const TOTAL = 58300,
   MAX_SPEED = 14.2,
   RACE_SPEED_FACTOR = .981,
-  QUICK_RACE_TIME_FACTOR = 10,
+  FIVE_MINUTE_RACE_TIME_FACTOR = 60,
+  TWENTY_MINUTE_RACE_TIME_FACTOR = 15,
   TARGET_SPM = 21,
   TARGET_DRIVE = 1,
   TARGET_CYCLE = 60 / TARGET_SPM,
@@ -31,5 +32,7 @@ const INITIAL_BODY = {
 const DEFAULT_CREW = {rower: 'Panu Musakka', boat: 'Lonka', material: 'mahogany'};
 
 function raceTimeMultiplier() {
-  return raceLength === 'quick' ? QUICK_RACE_TIME_FACTOR : 1;
+  return raceLength === 'five'
+    ? FIVE_MINUTE_RACE_TIME_FACTOR
+    : raceLength === 'twenty' ? TWENTY_MINUTE_RACE_TIME_FACTOR : 1;
 }
