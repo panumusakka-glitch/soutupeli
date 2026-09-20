@@ -28,8 +28,8 @@ function raceUsesReverseRoute() {
   return isTourRace() || raceType === 'church' && churchStart === 'night';
 }
 function setRaceLength(value) {
-  raceLength = value === 'quick' ? 'quick' : 'full';
-  for (const [id, mode] of [['fullRace', 'full'], ['quickRace', 'quick']]) {
+  raceLength = ['five', 'twenty'].includes(value) ? value : 'full';
+  for (const [id, mode] of [['fiveMinuteRace', 'five'], ['twentyMinuteRace', 'twenty'], ['fullRace', 'full']]) {
     const button = document.getElementById(id), active = raceLength === mode;
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
