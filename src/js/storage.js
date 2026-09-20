@@ -51,7 +51,7 @@ function updateRouteRecord(gender, name, seconds, type = 'single') {
 const stateRanges = {
   elapsed: [0, 1e8],
   distance: [0, TOTAL - .00001],
-  speed: [0, Math.max(...rowers.map(r => maxRowerSpeed(r))) * Math.max(CHURCH_SPEED_FACTOR, ...Object.values(DOUBLE_SPEED_FACTORS)) * QUICK_RACE_SPEED_FACTOR],
+  speed: [0, Math.max(...rowers.map(r => maxRowerSpeed(r))) * Math.max(CHURCH_SPEED_FACTOR, ...Object.values(DOUBLE_SPEED_FACTORS))],
   quality: [0, 1],
   carbs: [0, 420],
   bloodCarbs: [0, 60],
@@ -393,7 +393,7 @@ function resumeRace(slot = activeSaveSlot) {
         crew: !['single', 'church', 'canoe'].includes(saved.raceType) && savedCrew ? savedCrew.rowers.slice() : [botRower.name],
         startAt: Number.isFinite(saved.startAt) ? saved.startAt : seriesStartOffset(saved.raceType) - seriesStartOffset(s.raceType),
         distance: clamp(saved.distance, 0, TOTAL),
-        speed: clamp(saved.speed, 0, maxRowerSpeed(botRower) * (saved.raceType === 'church' ? CHURCH_SPEED_FACTOR : saved.raceType !== 'single' ? (DOUBLE_SPEED_FACTORS[botRower.voiceGender] || DOUBLE_SPEED_FACTORS.mixed) : 1) * raceSpeedMultiplier()),
+        speed: clamp(saved.speed, 0, maxRowerSpeed(botRower) * (saved.raceType === 'church' ? CHURCH_SPEED_FACTOR : saved.raceType !== 'single' ? (DOUBLE_SPEED_FACTORS[botRower.voiceGender] || DOUBLE_SPEED_FACTORS.mixed) : 1)),
         lane: Number.isFinite(saved.lane) ? clamp(saved.lane, -3, 3) : initialRaceLane(index),
         laneTarget: Number.isFinite(saved.laneTarget) ? clamp(saved.laneTarget, -3, 3) : initialRaceLane(index),
         routeBias: Number.isFinite(saved.routeBias) ? clamp(saved.routeBias, -3, 3) : initialRaceLane(index),
@@ -416,7 +416,7 @@ function resumeRace(slot = activeSaveSlot) {
   }
   rowerChatter.restore(s.chatter, rower.name, raceElapsed);
   running = true;
-  recordEligible = raceLength === 'full';
+  recordEligible = true;
   document.body.classList.remove('start-menu');
   rowingAudio.stopMenuMusic();
   last = performance.now();
