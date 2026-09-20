@@ -83,6 +83,10 @@ ui.leaderboardToggle.onclick = () => setLeaderboardExpanded(!leaderboardExpanded
 addEventListener('resize', resize);
 resize();
 document.querySelectorAll('.provision').forEach(b => b.addEventListener('click', () => consume(b.dataset.item)));
+document.getElementById('quickProvisions').onclick = event => {
+  const button = event.target.closest('.quick-provision');
+  if (button) consume(button.dataset.item);
+};
 provisionsToggle.onclick = () => setProvisions(provisionsToggle.getAttribute('aria-expanded') !== 'true');
 document.getElementById('closeProvisions').onclick = () => {
   setProvisions(false);
