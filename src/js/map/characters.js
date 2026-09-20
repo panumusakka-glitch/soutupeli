@@ -175,22 +175,22 @@ function boat(x, y, angle, now) {
   if (church) drawChurchBoatLabel(ctx, crewName(), 50);
   ctx.restore();
 }
-function botStrokePosition(bot) {
+function botStrokePosition(bot, now) {
   if (bot.finishedAt !== null || bot.speed < .2 || raceElapsed < bot.startAt) return 0;
   const strokesPerMinute = clamp(18 + bot.speed * .9, 19, 31);
   const cycle = 60 / strokesPerMinute;
-  const phase = ((raceElapsed - bot.startAt + bot.lane * .37) % cycle + cycle) % cycle / cycle;
+  const phase = ((now / 1000 + bot.lane * .37) % cycle + cycle) % cycle / cycle;
   const driveFraction = .38;
   if (phase < driveFraction) return .5 - .5 * Math.cos(Math.PI * phase / driveFraction);
   return .5 + .5 * Math.cos(Math.PI * (phase - driveFraction) / (1 - driveFraction));
 }
-function botBoat(x, y, angle, bot) {
+function botBoat(x, y, angle, bot, now) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle + Math.PI / 2);
   const church = bot.raceType === 'church', canoe = bot.raceType === 'canoe', double = ['double', 'alternating', 'church'].includes(bot.raceType);
   const bow = church ? -28 : canoe ? -18 : -14, stern = church ? 26 : canoe ? 17 : 13, halfWidth = church ? 7 : canoe ? 3 : 6;
-  const t = botStrokePosition(bot), bladeY = 11 - 22 * t, bladeX = 12 - 7 * t;
+  const t = botStrokePosition(bot, now), bladeY = 11 - 22 * t, bladeX = 12 - 7 * t;
   const moving = bot.finishedAt === null && bot.speed >= .2 && raceElapsed >= bot.startAt;
   ctx.fillStyle = bot.finishedAt === null ? '#b98247' : '#777b78';
   ctx.strokeStyle = bot.finishedAt === null ? '#efd095' : '#b6b6a2';
