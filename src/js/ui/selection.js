@@ -236,9 +236,9 @@ function selectCrew() {
   if (hasRower) updatePortrait();
   if (hasRower) document.getElementById('routeRecord').textContent = raceType === 'canoe' ? 'Kanoottien retkisoutu · Partalansaari' : routeRecordLabel(crewCategory(), raceType);
   document.getElementById('rowerProfile').hidden = !hasRower;
-  const labels = [['power', 'Voima'], ['speed', 'Nopeus'], ['endurance', 'Kestävyys'], ['skill', 'Taito'], ['cramp', 'Kramppiherkkyys'], ['hands', 'Käsien kovuus'], ['stomach', 'Vatsan toiminta']];
+  const labels = [['power', 'Voima'], ['speed', 'Nopeus'], ['endurance', 'Kestävyys'], ['skill', 'Taito'], ['cramp', 'Krampinsieto'], ['hands', 'Käsien kovuus'], ['stomach', 'Vatsan toiminta']];
   const rowerStats = document.getElementById('rowerStats');
-  const statMarkup = candidate => labels.map(([key, label]) => `<div class="stat ${key === 'cramp' ? 'bad' : ''}">${label}<b>${candidate[key]} / 99</b>${key === 'hands' && candidate.blisterImmune ? '<small>Ei rakkoja</small>' : ''}</div>`).join('');
+  const statMarkup = candidate => labels.map(([key, label]) => `<div class="stat">${label}<b>${key === 'cramp' ? `${(1 + 9 * (99 - candidate.cramp) / 98).toFixed(1).replace('.', ',')} / 10` : `${candidate[key]} / 99`}</b>${key === 'cramp' ? '<small>Suurempi on parempi</small>' : key === 'hands' && candidate.blisterImmune ? '<small>Ei rakkoja</small>' : ''}</div>`).join('');
   rowerStats.className = isCrewRace() ? 'crew-stat-grids' : 'stat-grid';
   rowerStats.innerHTML = !hasRower ? '' : isCrewRace()
     ? [rower, partnerRower].map(candidate => `<section class="crew-rower-stats"><h3>${candidate.name}</h3><div class="stat-grid">${statMarkup(candidate)}</div></section>`).join('')
